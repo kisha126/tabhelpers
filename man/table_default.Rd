@@ -2,11 +2,14 @@
 % Please edit documentation in R/table-default.R
 \name{table_default}
 \alias{table_default}
+\alias{table_default.default}
 \title{Display a table in the command line with customizable formatting.}
 \usage{
-table_default(
-  data,
-  left_align_first = FALSE,
+table_default(x, ...)
+
+\method{table_default}{default}(
+  x,
+  justify_cols = NULL,
   pos = FALSE,
   digits = 3,
   digits_by_col = NULL,
@@ -17,36 +20,117 @@ table_default(
   show_row_names = FALSE,
   center_table = FALSE,
   n_space = 2,
+  style_colnames = NULL,
+  style_columns = NULL,
   ...
 )
 }
 \arguments{
-\item{data}{A data frame or tibble to display.}
+\item{x}{A data frame or tibble to display.}
 
-\item{left_align_first}{Logical. If TRUE, the first column is left-aligned.}
+\item{...}{Additional arguments passed to specific methods.}
 
-\item{pos}{Logical. If TRUE, positive numbers are prefixed with a plus sign.}
+\item{justify_cols}{Controls column text alignment. Can be:
+\itemize{
+\item A single string ("left", "right", "center") to apply to all columns
+\item A vector of strings to apply to columns by position
+\item A named list (e.g., \code{list("1" = "left", "mpg" = "right")}) for specific columns
+}}
 
-\item{digits}{Number of digits to round numeric columns to.}
+\item{pos}{Logical. If \code{TRUE}, positive numbers are prefixed with a plus sign. Default is \code{FALSE}.}
 
-\item{digits_by_col}{Named list specifying digits for specific columns.}
+\item{digits}{Number of digits to round numeric columns to. Default is \code{3}.}
 
-\item{scientific}{Logical. If TRUE, numeric values are displayed in scientific notation.}
+\item{digits_by_col}{Named list specifying the number of digits for specific columns. Default is \code{NULL}.}
 
-\item{na_print}{Character string to represent missing values.}
+\item{scientific}{Logical. If \code{TRUE}, numeric values are displayed in scientific notation. Default is \code{FALSE}.}
 
-\item{min_width}{Minimum column width.}
+\item{na_print}{Character string to represent missing values. Default is an empty string \code{""}.}
 
-\item{border_char}{Character used for borders.}
+\item{min_width}{Minimum column width. Default is \code{NULL}.}
 
-\item{show_row_names}{Logical. If TRUE, row names are displayed.}
+\item{border_char}{Character used for borders. Default is \code{"─"}.}
 
-\item{center_table}{Logical. If TRUE, the table is centered in the terminal.}
+\item{show_row_names}{Logical. If \code{TRUE}, row names are displayed. Default is \code{FALSE}.}
 
-\item{n_space}{Number of spaces between columns.}
+\item{center_table}{Logical. If \code{TRUE}, the table is centered in the terminal. Default is \code{FALSE}.}
 
-\item{...}{Additional arguments (not used).}
+\item{n_space}{Number of spaces between columns. Default is \code{2}.}
+
+\item{style_colnames}{Styling for column headers. Can be:
+\itemize{
+\item A character vector or list specifying cli color/style functions
+(e.g., \code{list("mpg" = "red", "cyl" = "blue_bold")})
+\item A list of lambda functions that take a context object and return a styled string
+(e.g., \code{list("mpg" = function(ctx) { cli::col_red(ctx$formatted_value) })})
+}}
+
+\item{style_columns}{Styling for data cells. Can be:
+\itemize{
+\item A character vector or list specifying cli color/style functions
+(e.g., \code{list("mpg" = "green", "cyl" = "cyan")})
+\item A list of lambda functions that take a context object and return a styled string
+(e.g., \code{list("mpg" = function(ctx) { if(as.numeric(ctx$value) > 20) cli::col_green(ctx$formatted_value) else cli::col_red(ctx$formatted_value) })})
+}}
 }
 \description{
-Display a table in the command line with customizable formatting.
+This function takes a x frame or tibble and displays it in the command line with various formatting options.
+The table can be customized in terms of alignment, number formatting, column width, and more.
+}
+\section{Methods (by class)}{
+\itemize{
+\item \code{table_default(default)}: Default method for displaying tables.
+
+}}
+\examples{
+# Basic usage
+table_default(head(mtcars))
+
+# Justify columns differently
+table_default(head(mtcars), justify_cols = list("mpg" = "left", "cyl" = "right", "disp" = "center"))
+
+# Apply styling to column names
+table_default(head(mtcars), style_colnames = list("mpg" = "red", "cyl" = "blue", "disp" = "green"))
+
+# Apply styling to data columns
+table_default(head(mtcars), style_columns = list("mpg" = "cyan", "cyl" = "magenta"))
+
+# Using lambda functions for conditional styling
+table_default(head(mtcars),
+              style_columns = list(
+                "mpg" = function(ctx) {
+                  if(as.numeric(ctx$value) > 20) {
+                    cli::col_green(ctx$formatted_value)
+                  } else {
+                    cli::col_red(ctx$formatted_value)
+                  }
+                },
+                "cyl" = function(ctx) {
+                  if(as.numeric(ctx$value) == 4) {
+                    cli::style_italic(cli::col_blue(ctx$formatted_value))
+                  } else {
+                    ctx$formatted_value
+                  }
+                }
+              ))
+
+# Comprehensive example with lambda functions
+table_default(head(mtcars),
+              justify_cols = list("mpg" = "left", "cyl" = "right"),
+              style_colnames = list(
+                "mpg" = function(ctx) cli::col_red(cli::style_bold(ctx$formatted_value)),
+                "cyl" = "blue_italic"
+              ),
+              style_columns = list(
+                "mpg" = function(ctx) {
+                  val <- as.numeric(ctx$value)
+                  if(val > 20) cli::col_green(ctx$formatted_value)
+                  else if(val > 15) cli::col_yellow(ctx$formatted_value)
+                  else cli::col_red(ctx$formatted_value)
+                }
+              ),
+              digits = 1,
+              border_char = "=",
+              center_table = TRUE)
+
 }

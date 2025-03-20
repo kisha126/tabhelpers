@@ -19,19 +19,21 @@ cross_table(
 
 \item{percentage}{A character vector or logical value specifying which percentages to display.
 Options include:
-- `TRUE` or `"all"`: Display all percentages (row, column, and total).
-- `"by_row"`: Display row percentages.
-- `"by_col"`: Display column percentages.
-- `"by_total"`: Display total percentages.
-- `FALSE` or `NULL`: Do not display any percentages.}
+\itemize{
+\item \code{TRUE} or \code{"all"}: Display all percentages (row, column, and total).
+\item \code{"by_row"}: Display row percentages.
+\item \code{"by_col"}: Display column percentages.
+\item \code{"by_total"}: Display total percentages.
+\item \code{FALSE} or \code{NULL}: Do not display any percentages.
+}}
 
-\item{layout}{Logical. If `TRUE`, a layout box explaining the table structure is displayed.}
+\item{layout}{Logical. If \code{TRUE}, a layout box explaining the table structure is displayed.}
 
-\item{expected}{Logical. If `TRUE`, expected frequencies are displayed alongside observed frequencies.}
+\item{expected}{Logical. If \code{TRUE}, expected frequencies are displayed alongside observed frequencies.}
 
-\item{layout_center}{Logical. If `TRUE`, the layout box is centered in the terminal.}
+\item{layout_center}{Logical. If \code{TRUE}, the layout box is centered in the terminal.}
 
-\item{center_table}{Logical. If `TRUE`, the entire table is centered in the terminal.}
+\item{center_table}{Logical. If \code{TRUE}, the entire table is centered in the terminal.}
 
 \item{...}{Additional arguments (not currently used).}
 }
