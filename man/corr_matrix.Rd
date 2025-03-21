@@ -18,64 +18,94 @@ corr_matrix(
   digits = 3,
   center_table = FALSE,
   center_layout = FALSE,
+  col_mapping = NULL,
   ...
 )
 }
 \arguments{
-\item{data}{A data frame or list containing the correlation data. The data should include
-columns \code{var1}, \code{var2}, \code{cor}, \code{statistic}, \code{p}, and optionally \code{conf.low} and \code{conf.high}
-for confidence intervals.}
+\item{data}{Either a symmetric correlation matrix or a data frame containing pairwise
+correlation results with variable names, correlation coefficients, and optionally
+test statistics, p-values, and confidence intervals.}
 
-\item{LT}{Logical. If \code{TRUE}, the lower triangle of the correlation matrix is displayed.
-Default is \code{TRUE}.}
+\item{method}{Character string specifying the correlation method (e.g., "Pearson", "Spearman").
+If NULL, tries to extract from the data.}
 
-\item{UT}{Logical. If \code{TRUE}, the upper triangle of the correlation matrix is displayed.
-Default is \code{TRUE}.}
+\item{statistic}{Column name containing test statistics (e.g., t-values). If the column
+doesn't exist, a warning is issued and statistics aren't displayed.}
 
-\item{layout_view}{Logical. If \code{TRUE}, a layout preview of the correlation matrix is displayed
-in the console. Default is \code{FALSE}.}
+\item{pval}{Column name containing p-values. If the column doesn't exist, a warning is
+issued and p-values aren't displayed.}
 
-\item{CI}{Logical. If \code{TRUE}, confidence intervals are included in the correlation matrix.
-Default is \code{FALSE}.}
+\item{ci_lc}{Column name containing lower confidence interval bounds. If the column
+doesn't exist, a warning is issued.}
 
-\item{digits}{Integer. The number of decimal places to round the correlation coefficients,
-statistics, and p-values. Default is \code{3}.}
+\item{ci_uc}{Column name containing upper confidence interval bounds. If the column
+doesn't exist, a warning is issued.}
 
-\item{center_table}{Logical. If \code{TRUE}, the correlation table is centered in the console.
-Default is \code{FALSE}.}
+\item{LT}{Logical. If TRUE (default), shows correlations in the lower triangle of the matrix.}
 
-\item{center_layout}{Logical. If \code{TRUE}, the layout preview is centered in the console.
-Default is \code{FALSE}.}
+\item{UT}{Logical. If TRUE (default), shows correlations in the upper triangle of the matrix.}
 
-\item{...}{Additional arguments passed to the \code{cor_table} function.}
+\item{layout_view}{Logical. If TRUE, displays a visual representation of the output layout.}
+
+\item{CI}{Logical. If TRUE, displays confidence intervals (requires at least one CI column).}
+
+\item{digits}{Integer specifying the number of decimal places to display.}
+
+\item{center_table}{Logical. If TRUE, centers the entire table in the console.}
+
+\item{center_layout}{Logical. If TRUE, centers the layout view in the console.}
+
+\item{col_mapping}{Named list mapping column types to specific column names in the data.
+Supported types are "statistic", "pvalue", "lower_ci", and "upper_ci".}
+
+\item{...}{Additional arguments (not currently used).}
 }
 \value{
-A formatted correlation matrix table displayed in the R console. The function
-does not return a value but prints the table directly.
+Invisibly returns the formatted data that was printed.
 }
 \description{
-This function generates and displays a correlation matrix table in the R command line.
-It supports various options such as displaying the lower triangle (LT), upper triangle (UT),
-confidence intervals (CI), and custom formatting options like centering the table or layout.
+Creates and prints a formatted correlation matrix from either a correlation matrix
+or a data frame containing pairwise correlation results (such as from \code{rstatix::cor_test()}).
+}
+\details{
+The function can handle two types of inputs:
+\itemize{
+\item A symmetric correlation matrix (e.g., from \code{cor()})
+\item A data frame with pairwise correlations (e.g., from \code{rstatix::cor_test()})
+}
+
+For data frames, the function tries to identify relevant columns using standard names,
+but you can explicitly specify column names using the function parameters or the
+\code{col_mapping} parameter.
+
+The \code{col_mapping} parameter accepts a named list that maps column types to specific
+column names in your data frame. For example:
+\code{list(statistic = "t_value", pvalue = "p_adjusted")}
 }
 \examples{
-\dontrun{
-# Example data frame with correlation results
-corr_data <- data.frame(
-  var1 = c("var1", "var1", "var2"),
-  var2 = c("var2", "var3", "var3"),
-  cor = c(0.5, 0.3, 0.7),
-  statistic = c(2.1, 1.5, 3.2),
-  p = c(0.04, 0.13, 0.001),
-  conf.low = c(0.1, -0.1, 0.4),
-  conf.high = c(0.9, 0.7, 1.0)
-)
+# With a correlation matrix
+corr_matrix(cor(mtcars[, 1:4]), method = "Pearson")
 
-# Display the correlation matrix with default settings
-corr_matrix(corr_data)
+# With a data frame from rstatix::cor_test()
+if (requireNamespace("rstatix", quietly = TRUE)) {
+  mtcars |>
+    rstatix::cor_test(disp, wt, hp) |>
+    corr_matrix(
+      statistic = statistic,
+      pval = p,
+      layout_view = TRUE
+    )
 
-# Display the correlation matrix with confidence intervals and centered layout
-corr_matrix(corr_data, CI = TRUE, center_layout = TRUE)
+  # Using col_mapping for custom column names
+  mtcars |>
+    rstatix::cor_test(disp, wt, hp) |>
+    corr_matrix(
+      col_mapping = list(
+        statistic = "statistic",
+        pvalue = "p"
+      )
+    )
 }
 
 }
