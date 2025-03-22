@@ -7,6 +7,9 @@
 corr_matrix(
   data,
   method = NULL,
+  corr = NULL,
+  var1 = NULL,
+  var2 = NULL,
   statistic = NULL,
   pval = NULL,
   ci_lc = NULL,
@@ -14,7 +17,6 @@ corr_matrix(
   LT = TRUE,
   UT = TRUE,
   layout_view = FALSE,
-  CI = FALSE,
   digits = 3,
   center_table = FALSE,
   center_layout = FALSE,
@@ -29,6 +31,15 @@ test statistics, p-values, and confidence intervals.}
 
 \item{method}{Character string specifying the correlation method (e.g., "Pearson", "Spearman").
 If NULL, tries to extract from the data.}
+
+\item{corr}{Column name containing correlation coefficient values. If NULL (default),
+tries to automatically identify using standard names like "cor", "r", "estimate", or "correlation".}
+
+\item{var1}{Column name containing first variable names. If NULL (default), tries to
+automatically identify using standard names like "var1", "variable1", "x", or "X".}
+
+\item{var2}{Column name containing second variable names. If NULL (default), tries to
+automatically identify using standard names like "var2", "variable2", "y", or "Y".}
 
 \item{statistic}{Column name containing test statistics (e.g., t-values). If the column
 doesn't exist, a warning is issued and statistics aren't displayed.}
@@ -48,8 +59,6 @@ doesn't exist, a warning is issued.}
 
 \item{layout_view}{Logical. If TRUE, displays a visual representation of the output layout.}
 
-\item{CI}{Logical. If TRUE, displays confidence intervals (requires at least one CI column).}
-
 \item{digits}{Integer specifying the number of decimal places to display.}
 
 \item{center_table}{Logical. If TRUE, centers the entire table in the console.}
@@ -57,7 +66,8 @@ doesn't exist, a warning is issued.}
 \item{center_layout}{Logical. If TRUE, centers the layout view in the console.}
 
 \item{col_mapping}{Named list mapping column types to specific column names in the data.
-Supported types are "statistic", "pvalue", "lower_ci", and "upper_ci".}
+Supported types are "variable1", "variable2", "correlation", "statistic", "pvalue",
+"lower_ci", and "upper_ci".}
 
 \item{...}{Additional arguments (not currently used).}
 }
@@ -81,7 +91,7 @@ but you can explicitly specify column names using the function parameters or the
 
 The \code{col_mapping} parameter accepts a named list that maps column types to specific
 column names in your data frame. For example:
-\code{list(statistic = "t_value", pvalue = "p_adjusted")}
+\code{list(correlation = "cor_value", statistic = "t_value", pvalue = "p_adjusted")}
 }
 \examples{
 # With a correlation matrix

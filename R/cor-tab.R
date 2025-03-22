@@ -178,6 +178,12 @@ cor_table <- function(data,
 #'   test statistics, p-values, and confidence intervals.
 #' @param method Character string specifying the correlation method (e.g., "Pearson", "Spearman").
 #'   If NULL, tries to extract from the data.
+#' @param corr Column name containing correlation coefficient values. If NULL (default),
+#'   tries to automatically identify using standard names like "cor", "r", "estimate", or "correlation".
+#' @param var1 Column name containing first variable names. If NULL (default), tries to
+#'   automatically identify using standard names like "var1", "variable1", "x", or "X".
+#' @param var2 Column name containing second variable names. If NULL (default), tries to
+#'   automatically identify using standard names like "var2", "variable2", "y", or "Y".
 #' @param statistic Column name containing test statistics (e.g., t-values). If the column
 #'   doesn't exist, a warning is issued and statistics aren't displayed.
 #' @param pval Column name containing p-values. If the column doesn't exist, a warning is
@@ -189,12 +195,12 @@ cor_table <- function(data,
 #' @param LT Logical. If TRUE (default), shows correlations in the lower triangle of the matrix.
 #' @param UT Logical. If TRUE (default), shows correlations in the upper triangle of the matrix.
 #' @param layout_view Logical. If TRUE, displays a visual representation of the output layout.
-#' @param CI Logical. If TRUE, displays confidence intervals (requires at least one CI column).
 #' @param digits Integer specifying the number of decimal places to display.
 #' @param center_table Logical. If TRUE, centers the entire table in the console.
 #' @param center_layout Logical. If TRUE, centers the layout view in the console.
 #' @param col_mapping Named list mapping column types to specific column names in the data.
-#'   Supported types are "statistic", "pvalue", "lower_ci", and "upper_ci".
+#'   Supported types are "variable1", "variable2", "correlation", "statistic", "pvalue",
+#'   "lower_ci", and "upper_ci".
 #' @param ... Additional arguments (not currently used).
 #'
 #' @details
@@ -210,7 +216,7 @@ cor_table <- function(data,
 #'
 #' The \code{col_mapping} parameter accepts a named list that maps column types to specific
 #' column names in your data frame. For example:
-#' \code{list(statistic = "t_value", pvalue = "p_adjusted")}
+#' \code{list(correlation = "cor_value", statistic = "t_value", pvalue = "p_adjusted")}
 #'
 #' @return Invisibly returns the formatted data that was printed.
 #'
@@ -242,6 +248,9 @@ cor_table <- function(data,
 #' @export
 corr_matrix <- function(data,
                         method = NULL,
+                        corr = NULL,
+                        var1 = NULL,
+                        var2 = NULL,
                         statistic = NULL,
                         pval = NULL,
                         ci_lc = NULL,
@@ -249,13 +258,15 @@ corr_matrix <- function(data,
                         LT = TRUE,
                         UT = TRUE,
                         layout_view = FALSE,
-                        CI = FALSE,
                         digits = 3,
                         center_table = FALSE,
                         center_layout = FALSE,
                         col_mapping = NULL, ...) {
 
     # Fix NSE by properly capturing symbols before evaluating
+    corr_col <- if (!is.null(substitute(corr))) deparse(ensym(corr))
+    var1_col_spec <- if (!is.null(substitute(var1))) deparse(ensym(var1))
+    var2_col_spec <- if (!is.null(substitute(var2))) deparse(ensym(var2))
     statistic_col <- if (!is.null(substitute(statistic))) deparse(ensym(statistic))
     pval_col <- if (!is.null(substitute(pval))) deparse(ensym(pval))
     ci_lc_col <- if (!is.null(substitute(ci_lc))) deparse(ensym(ci_lc))
@@ -315,7 +326,7 @@ corr_matrix <- function(data,
         }
 
         # Modified helper function that is strict about column matching
-        find_column <- function(col_spec, standard_names, type = NULL) {
+        find_column <- function(col_spec, standard_names, type = NULL, position = NULL) {
             # First priority: user-provided explicit column name
             if (!is.null(col_spec)) {
                 # Check if the name matches a column in data
@@ -343,20 +354,26 @@ corr_matrix <- function(data,
                 }
             }
 
+            # Fourth priority: use positional column as fallback
+            if (!is.null(position) && position <= ncol(data)) {
+                return(names(data)[position])
+            }
+
             # No auto-detection for partial matches to avoid unexpected behavior
             return(NULL)
         }
 
-        # Find variable columns
-        var1_col <- find_column(NULL, c("var1", "variable1", "x", "X"), "variable1")
-        var2_col <- find_column(NULL, c("var2", "variable2", "y", "Y"), "variable2")
+        # Find variable columns - now using explicit var1 and var2 parameters if provided
+        # Fall back to first and second columns if nothing else matches
+        var1_col <- find_column(var1_col_spec, c("var1", "variable1", "x", "X"), "variable1", 1)
+        var2_col <- find_column(var2_col_spec, c("var2", "variable2", "y", "Y"), "variable2", 2)
 
         if (is.null(var1_col) || is.null(var2_col)) {
             stop("Cannot identify variable columns in the data frame.")
         }
 
-        # Find correlation column
-        cor_col <- find_column(NULL, c("cor", "r", "estimate", "correlation"), "correlation")
+        # Find correlation column - now using explicit corr parameter if provided
+        cor_col <- find_column(corr_col, c("cor", "r", "estimate", "correlation"), "correlation")
         if (is.null(cor_col)) {
             stop("Cannot identify correlation column in the data frame.")
         }
@@ -395,8 +412,8 @@ corr_matrix <- function(data,
             }
         }
 
-        # Determine if CI should be displayed - must have at least one CI column
-        has_CI <- (!is.null(ci_low_col) || !is.null(ci_high_col)) && CI
+        # Determine if confidence intervals should be displayed - based on presence of CI columns
+        show_ci <- !is.null(ci_low_col) || !is.null(ci_high_col)
 
         # Show layout if requested
         if (layout_view) {
@@ -434,8 +451,8 @@ corr_matrix <- function(data,
                 cat(padding_str, "| ", center_text("< p-value >", layout_width - 4), " |", "\n", sep = "")
             }
 
-            # Show CI row if requested and available
-            if (has_CI) {
+            # Show CI row if available
+            if (show_ci) {
                 if (!is.null(ci_low_col) && !is.null(ci_high_col)) {
                     ci_text <- "< [Lower CI, Upper CI] >"
                 } else if (!is.null(ci_low_col)) {
@@ -460,7 +477,7 @@ corr_matrix <- function(data,
         elements_to_show <- 1  # Start with 1 for correlation
         if (!is.null(stat_col)) elements_to_show <- elements_to_show + 1
         if (!is.null(p_col)) elements_to_show <- elements_to_show + 1
-        if (has_CI && (!is.null(ci_low_col) || !is.null(ci_high_col))) elements_to_show <- elements_to_show + 1
+        if (show_ci) elements_to_show <- elements_to_show + 1
 
         # Initialize result matrix with appropriate size - one row per variable
         result_matrix <- matrix("", nrow = n * elements_to_show, ncol = n + 1)
@@ -506,8 +523,8 @@ corr_matrix <- function(data,
                             current_row <- current_row + 1
                         }
 
-                        # Confidence interval - only if CI=TRUE and at least one bound specified and found
-                        if (has_CI && (!is.null(ci_low_col) || !is.null(ci_high_col))) {
+                        # Confidence interval - only if at least one bound specified and found
+                        if (show_ci) {
                             ci_low_val <- if (!is.null(ci_low_col)) sprintf(paste0("%.", digits, "f"), as.numeric(data[row_idx, ci_low_col])) else "NA"
                             ci_high_val <- if (!is.null(ci_high_col)) sprintf(paste0("%.", digits, "f"), as.numeric(data[row_idx, ci_high_col])) else "NA"
                             result_matrix[row_base + current_row, j + 1] <- sprintf("[%s, %s]", ci_low_val, ci_high_val)
