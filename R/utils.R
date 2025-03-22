@@ -116,13 +116,21 @@ format_row <- function(row, col_widths, justify_cols = NULL, pos = FALSE, n_spac
 # For cross tabulation
 
 center_text_x2 <- function(text, width) {
-    text <- as.character(text)
-    if (is.na(width) || width <= nchar(text)) return(text)
-    padding <- width - nchar(text)
-    left_pad <- floor(padding / 2)
-    right_pad <- ceiling(padding / 2)
-    paste0(strrep(" ", left_pad), text, strrep(" ", right_pad))
+    text_width <- nchar(strip_ansi(text))
+    padding <- max(0, width - text_width)
+    left_padding <- floor(padding / 2)
+    right_padding <- ceiling(padding / 2)
+    paste0(strrep(" ", left_padding), text, strrep(" ", right_padding))
 }
+
+# center_text_x2 <- function(text, width) {
+#     text <- as.character(text)
+#     if (is.na(width) || width <= nchar(text)) return(text)
+#     padding <- width - nchar(text)
+#     left_pad <- floor(padding / 2)
+#     right_pad <- ceiling(padding / 2)
+#     paste0(strrep(" ", left_pad), text, strrep(" ", right_pad))
+# }
 
 format_number_x2 <- function(x) {
     sapply(x, function(n) {

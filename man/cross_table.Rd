@@ -11,6 +11,7 @@ cross_table(
   expected = TRUE,
   layout_center = FALSE,
   center_table = FALSE,
+  style = NULL,
   ...
 )
 }
@@ -35,10 +36,24 @@ Options include:
 
 \item{center_table}{Logical. If \code{TRUE}, the entire table is centered in the terminal.}
 
+\item{style}{Default to \code{NULL}. If provided, the components in the displayed table can be styled.
+It has 9 components to be styled:
+\itemize{
+\item \code{observed} You can style the displayed observed values.
+\item \code{expected}: You can style the displayed expected values.
+\item \code{total}: You can style the displayed total frequencies (marginal and grand total).
+\item \code{row_percentage}: You can style the displayed row percentages.
+\item \code{col_percentage}: You can style the displayed column percentages.
+\item \code{total_percentage}: You can style the marginal percentages.
+\item \code{title}: You can style the title.
+\item \code{border}: You can choose what symbol you can use to draw the table.
+\item \code{border_text}: You can style the table
+}}
+
 \item{...}{Additional arguments (not currently used).}
 }
 \value{
-Invisibly returns the formatted cross-tabulation table as a matrix. The table is printed to the console.
+Invisibly returns the formatted cross-tabulation table as a matrix. The table is printed to the console/command line.
 }
 \description{
 This function creates a cross-tabulation (contingency) table from a given data matrix or table.
@@ -53,7 +68,21 @@ cross_table(data)
 # Example 2: Display row and column percentages
 cross_table(data, percentage = c("by_row", "by_col"))
 
-# Example 3: Display expected frequencies and center the table
-cross_table(data, expected = TRUE, center_table = TRUE)
+# Example 3: Overall component with style
+matrix(c(10, 20, 30, 40), nrow = 2, byrow = TRUE) |> # Use `\%>\%` from `magrittr` if preferred
+    cross_table(
+        percentage = "all",
+        style = list(
+            observed = \(ctx) cli::col_yellow(ctx$formatted_text),
+            expected = \(ctx) cli::style_italic(ctx$formatted_text),
+            row_percentage = "blue_italic",
+            col_percentage = "blue_italic",
+            total_percentage = "red_italic",
+            total = \(ctx) cli::style_italic(ctx$formatted_text),
+            border = "=",
+            border_text = "cyan",
+            title = \(ctx) cli::style_bold(cli::col_blue(ctx$formatted_text))
+        )
+    )
 
 }
