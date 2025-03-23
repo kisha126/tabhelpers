@@ -38,16 +38,18 @@ Can include the following components:
 \item \code{border}: Character to use for borders (overrides \code{border_char}).
 \item \code{border_text}: Styling for the border.
 \item \code{title}: Styling for the title.
+\item \code{sep}: Separator character between left and right column.
 }
+
 Each style component can be either a predefined style string (e.g., "blue", "red_italic", "bold")
 or a function that takes a context list with/without a \code{value} element and returns the styled text.}
 
-\item{align}{Controls the alignment of column values. Can be specified in three ways:
+\item{align}{Controls the alignment of column values.
+Can be specified in three ways:
 \itemize{
 \item A single string: affects only the left column (e.g., "left", "center", "right").
 \item A vector of two strings: affects both columns in order (e.g., c("left", "right")).
 \item A list with named components: explicitly specifies alignment for each column
-(e.g., list(left_col = "left", right_col = "right")).
 }}
 
 \item{...}{Additional arguments (currently unused).}
@@ -65,8 +67,8 @@ the \code{cli} package and column alignment options.
 \examples{
 # Create a sample data frame
 df <- data.frame(
-  Category = c("A", "B", "C", "D", "E"),
-  Value = c(10, 20, 30, 40, 50)
+    Category = c("A", "B", "C", "D", "E"),
+    Value = c(10, 20, 30, 40, 50)
 )
 
 # Display the table with a title and header
@@ -76,14 +78,16 @@ table_summary(df, title = "Sample Table", header = TRUE)
 table_summary(df, l = 2, center_table = TRUE)
 
 # Use styling and alignment
-table_summary(df, header = TRUE,
-              style = list(
-                left_col = "blue_bold",
-                right_col = "red",
-                title = "green",
-                border_text = "yellow"
-              ),
-              align = c("center", "right"))
+table_summary(
+    df, header = TRUE,
+    style = list(
+        left_col = "blue_bold",
+        right_col = "red",
+        title = "green",
+        border_text = "yellow"
+    ),
+    align = c("center", "right")
+)
 
 # Use custom styling with lambda functions
 table_summary(

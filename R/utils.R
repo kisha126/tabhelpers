@@ -151,7 +151,12 @@ align_test <- function(text, width) {
     paste0(strrep(" ", left_pad), text, strrep(" ", right_pad))
 }
 
-format_row_summary <- function(left, right, left_width, right_width, align = NULL, style = NULL) {
+format_row_summary <- function(left,
+                               right,
+                               left_width,
+                               right_width,
+                               align = NULL,
+                               style = NULL) {
     # Apply alignment
     left_align <- "left"  # Default left alignment for left column
     right_align <- "right"  # Default right alignment for right column
@@ -242,7 +247,13 @@ format_row_summary <- function(left, right, left_width, right_width, align = NUL
         }
     }
 
-    paste0("  ", left_formatted, "    ", right_formatted)
+    sep_value <- "    "
+    if (!is.null(style) && !is.null(style$sep)) {
+        # If a custom separator is provided, add padding around it
+        sep_value <- paste0(" ", style$sep, " ")
+    }
+
+    paste0("  ", left_formatted, sep_value, right_formatted)
 }
 
 # format_row_summary <- function(left, right, left_width, right_width) {

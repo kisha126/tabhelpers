@@ -14,23 +14,22 @@
 #' @param center_table A logical value. If `TRUE`, the table is centered in the terminal.
 #' @param border_char Character used for borders. Default is `"─"`.
 #' @param style A list controlling the visual styling of table elements using ANSI formatting.
-#'              Can include the following components:
-#'              \itemize{
-#'                \item `left_col`: Styling for the left column values.
-#'                \item `right_col`: Styling for the right column values.
-#'                \item `border`: Character to use for borders (overrides `border_char`).
-#'                \item `border_text`: Styling for the border.
-#'                \item `title`: Styling for the title.
-#'              }
-#'              Each style component can be either a predefined style string (e.g., "blue", "red_italic", "bold")
-#'              or a function that takes a context list with/without a `value` element and returns the styled text.
-#' @param align Controls the alignment of column values. Can be specified in three ways:
-#'              \itemize{
-#'                \item A single string: affects only the left column (e.g., "left", "center", "right").
-#'                \item A vector of two strings: affects both columns in order (e.g., c("left", "right")).
-#'                \item A list with named components: explicitly specifies alignment for each column
-#'                      (e.g., list(left_col = "left", right_col = "right")).
-#'              }
+#'   Can include the following components:
+#'   - `left_col`: Styling for the left column values.
+#'   - `right_col`: Styling for the right column values.
+#'   - `border`: Character to use for borders (overrides `border_char`).
+#'   - `border_text`: Styling for the border.
+#'   - `title`: Styling for the title.
+#'   - `sep`: Separator character between left and right column.
+#'
+#'   Each style component can be either a predefined style string (e.g., "blue", "red_italic", "bold")
+#'   or a function that takes a context list with/without a `value` element and returns the styled text.
+#' @param align Controls the alignment of column values.
+#'   Can be specified in three ways:
+#'   - A single string: affects only the left column (e.g., "left", "center", "right").
+#'   - A vector of two strings: affects both columns in order (e.g., c("left", "right")).
+#'   - A list with named components: explicitly specifies alignment for each column
+#'
 #' @param ... Additional arguments (currently unused).
 #'
 #' @return This function does not return a value. It prints the formatted table to the console.
@@ -38,8 +37,8 @@
 #' @examples
 #' # Create a sample data frame
 #' df <- data.frame(
-#'   Category = c("A", "B", "C", "D", "E"),
-#'   Value = c(10, 20, 30, 40, 50)
+#'     Category = c("A", "B", "C", "D", "E"),
+#'     Value = c(10, 20, 30, 40, 50)
 #' )
 #'
 #' # Display the table with a title and header
@@ -49,14 +48,16 @@
 #' table_summary(df, l = 2, center_table = TRUE)
 #'
 #' # Use styling and alignment
-#' table_summary(df, header = TRUE,
-#'               style = list(
-#'                 left_col = "blue_bold",
-#'                 right_col = "red",
-#'                 title = "green",
-#'                 border_text = "yellow"
-#'               ),
-#'               align = c("center", "right"))
+#' table_summary(
+#'     df, header = TRUE,
+#'     style = list(
+#'         left_col = "blue_bold",
+#'         right_col = "red",
+#'         title = "green",
+#'         border_text = "yellow"
+#'     ),
+#'     align = c("center", "right")
+#' )
 #'
 #' # Use custom styling with lambda functions
 #' table_summary(
@@ -92,6 +93,11 @@ table_summary <- function(data,
     n_rows <- nrow(data)
     is_split <- !is.null(l) && l < n_rows
 
+    sep_width <- 4
+    if (!is.null(style) && !is.null(style$sep)) {
+        sep_width <- nchar(paste0(" ", style$sep, " "))
+    }
+
     if (is_split) {
         left_table <- data_matrix[1:l, ]
         right_table <- data_matrix[(l+1):n_rows, ]
@@ -101,13 +107,13 @@ table_summary <- function(data,
         right_left_width <- max(nchar(right_table[, 1]), nchar(col_names[1]))
         right_right_width <- max(nchar(right_table[, 2]), nchar(col_names[2]))
 
-        left_table_width <- left_left_width + left_right_width + 8
-        right_table_width <- right_left_width + right_right_width + 8
+        left_table_width <- left_left_width + left_right_width + 4 + sep_width  # 4 for padding + separator width
+        right_table_width <- right_left_width + right_right_width + 4 + sep_width
         full_width <- left_table_width + right_table_width
     } else {
         left_width <- max(nchar(data_matrix[, 1]), nchar(col_names[1]))
         right_width <- max(nchar(data_matrix[, 2]), nchar(col_names[2]))
-        full_width <- left_width + right_width + 8
+        full_width <- left_width + right_width + 4 + sep_width
     }
 
     horizontal_line <- strrep(border_char, full_width)
@@ -135,14 +141,12 @@ table_summary <- function(data,
         }
     }
 
-    # Apply centering if center_table is TRUE
     prefix <- ""
     if (center_table) {
-        # Get terminal width if possible, otherwise use a reasonable default
         term_width <- tryCatch({
             as.numeric(system("tput cols", intern = TRUE))
         }, error = function(e) {
-            as.double(options("width"))  # Default terminal width
+            as.double(options("width"))
         })
 
         # Calculate left padding for centering
@@ -190,12 +194,12 @@ table_summary <- function(data,
     if (header) {
         if (is_split) {
             header_row <- paste0(
-                format_row_summary(col_names[1], col_names[2], left_left_width, left_right_width),
+                format_row_summary(col_names[1], col_names[2], left_left_width, left_right_width, style = style),
                 "  ",
-                format_row_summary(col_names[1], col_names[2], right_left_width, right_right_width)
+                format_row_summary(col_names[1], col_names[2], right_left_width, right_right_width, style = style)
             )
         } else {
-            header_row <- format_row_summary(col_names[1], col_names[2], left_width, right_width)
+            header_row <- format_row_summary(col_names[1], col_names[2], left_width, right_width, style = style)
         }
         cat(prefix, header_row, "\n", sep = "")
         cat(prefix, horizontal_line, "\n", sep = "")
