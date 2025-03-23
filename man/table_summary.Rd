@@ -11,6 +11,8 @@ table_summary(
   header = FALSE,
   center_table = FALSE,
   border_char = "─",
+  style = NULL,
+  align = NULL,
   ...
 )
 }
@@ -28,6 +30,26 @@ If \code{NULL}, the table is not split.}
 
 \item{border_char}{Character used for borders. Default is \code{"─"}.}
 
+\item{style}{A list controlling the visual styling of table elements using ANSI formatting.
+Can include the following components:
+\itemize{
+\item \code{left_col}: Styling for the left column values.
+\item \code{right_col}: Styling for the right column values.
+\item \code{border}: Character to use for borders (overrides \code{border_char}).
+\item \code{border_text}: Styling for the border.
+\item \code{title}: Styling for the title.
+}
+Each style component can be either a predefined style string (e.g., "blue", "red_italic", "bold")
+or a function that takes a context list with/without a \code{value} element and returns the styled text.}
+
+\item{align}{Controls the alignment of column values. Can be specified in three ways:
+\itemize{
+\item A single string: affects only the left column (e.g., "left", "center", "right").
+\item A vector of two strings: affects both columns in order (e.g., c("left", "right")).
+\item A list with named components: explicitly specifies alignment for each column
+(e.g., list(left_col = "left", right_col = "right")).
+}}
+
 \item{...}{Additional arguments (currently unused).}
 }
 \value{
@@ -37,6 +59,8 @@ This function does not return a value. It prints the formatted table to the cons
 This function takes a two-column data frame and formats it into a readable table.
 The table can be optionally split into two parts, centered, and given a title.
 It is useful for displaying summary information in a clean, tabular format.
+The function also supports styling with ANSI colors and text formatting through
+the \code{cli} package and column alignment options.
 }
 \examples{
 # Create a sample data frame
@@ -50,5 +74,25 @@ table_summary(df, title = "Sample Table", header = TRUE)
 
 # Split the table after the second row and center it
 table_summary(df, l = 2, center_table = TRUE)
+
+# Use styling and alignment
+table_summary(df, header = TRUE,
+              style = list(
+                left_col = "blue_bold",
+                right_col = "red",
+                title = "green",
+                border_text = "yellow"
+              ),
+              align = c("center", "right"))
+
+# Use custom styling with lambda functions
+table_summary(
+    df, header = TRUE,
+    style = list(
+        left_col = \(ctx) cli::col_red(ctx), # ctx$value is another option
+        right_col = \(ctx) cli::col_blue(ctx)
+    ),
+    align = list(left_col = "left", right_col = "right")
+)
 
 }

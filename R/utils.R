@@ -151,11 +151,105 @@ align_test <- function(text, width) {
     paste0(strrep(" ", left_pad), text, strrep(" ", right_pad))
 }
 
-format_row_summary <- function(left, right, left_width, right_width) {
-    left_formatted <- sprintf("%-*s", left_width, left)
-    right_formatted <- sprintf("%*s", right_width, right)
+format_row_summary <- function(left, right, left_width, right_width, align = NULL, style = NULL) {
+    # Apply alignment
+    left_align <- "left"  # Default left alignment for left column
+    right_align <- "right"  # Default right alignment for right column
+
+    if (!is.null(align)) {
+        if (is.character(align) && length(align) == 1) {
+            left_align <- align
+        } else if (is.character(align) && length(align) == 2) {
+            left_align <- align[1]
+            right_align <- align[2]
+        } else if (is.list(align)) {
+            if (!is.null(align$left_col)) left_align <- align$left_col
+            if (!is.null(align$right_col)) right_align <- align$right_col
+        }
+    }
+
+    # Format text based on alignment
+    if (left_align == "left") {
+        left_formatted <- sprintf("%-*s", left_width, left)
+    } else if (left_align == "right") {
+        left_formatted <- sprintf("%*s", left_width, left)
+    } else if (left_align == "center") {
+        left_formatted <- align_test(left, left_width)
+    }
+
+    if (right_align == "left") {
+        right_formatted <- sprintf("%-*s", right_width, right)
+    } else if (right_align == "right") {
+        right_formatted <- sprintf("%*s", right_width, right)
+    } else if (right_align == "center") {
+        right_formatted <- align_test(right, right_width)
+    }
+
+    # Apply styling if provided
+    if (!is.null(style)) {
+        # Style left column
+        if (!is.null(style$left_col)) {
+            if (is.function(style$left_col)) {
+                left_formatted <- style$left_col(list(value = left_formatted))
+            } else if (is.character(style$left_col)) {
+                # Apply predefined styles from cli
+                if (style$left_col == "bold") {
+                    left_formatted <- cli::col_br(left_formatted)
+                } else if (style$left_col == "italic") {
+                    left_formatted <- cli::style_italic(left_formatted)
+                } else if (style$left_col == "blue") {
+                    left_formatted <- cli::col_blue(left_formatted)
+                } else if (style$left_col == "red") {
+                    left_formatted <- cli::col_red(left_formatted)
+                } else if (style$left_col == "green") {
+                    left_formatted <- cli::col_green(left_formatted)
+                } else if (style$left_col == "yellow") {
+                    left_formatted <- cli::col_yellow(left_formatted)
+                } else if (style$left_col == "blue_bold") {
+                    left_formatted <- cli::col_blue(cli::style_bold(left_formatted))
+                } else if (style$left_col == "red_italic") {
+                    left_formatted <- cli::col_red(cli::style_italic(left_formatted))
+                }
+                # Add more style combinations as needed
+            }
+        }
+
+        # Style right column
+        if (!is.null(style$right_col)) {
+            if (is.function(style$right_col)) {
+                right_formatted <- style$right_col(list(value = right_formatted))
+            } else if (is.character(style$right_col)) {
+                # Apply predefined styles from cli
+                if (style$right_col == "bold") {
+                    right_formatted <- cli::style_bold(right_formatted)
+                } else if (style$right_col == "italic") {
+                    right_formatted <- cli::style_italic(right_formatted)
+                } else if (style$right_col == "blue") {
+                    right_formatted <- cli::col_blue(right_formatted)
+                } else if (style$right_col == "red") {
+                    right_formatted <- cli::col_red(right_formatted)
+                } else if (style$right_col == "green") {
+                    right_formatted <- cli::col_green(right_formatted)
+                } else if (style$right_col == "yellow") {
+                    right_formatted <- cli::col_yellow(right_formatted)
+                } else if (style$right_col == "blue_bold") {
+                    right_formatted <- cli::col_blue(cli::style_bold(right_formatted))
+                } else if (style$right_col == "red_italic") {
+                    right_formatted <- cli::col_red(cli::style_italic(right_formatted))
+                }
+                # Add more style combinations as needed
+            }
+        }
+    }
+
     paste0("  ", left_formatted, "    ", right_formatted)
 }
+
+# format_row_summary <- function(left, right, left_width, right_width) {
+#     left_formatted <- sprintf("%-*s", left_width, left)
+#     right_formatted <- sprintf("%*s", right_width, right)
+#     paste0("  ", left_formatted, "    ", right_formatted)
+# }
 
 # For correlation matrix
 
