@@ -11,7 +11,7 @@ table_summary(
   header = FALSE,
   center_table = FALSE,
   border_char = "─",
-  style = NULL,
+  style = list(),
   align = NULL,
   ...
 )
@@ -35,7 +35,6 @@ Can include the following components:
 \itemize{
 \item \code{left_col}: Styling for the left column values.
 \item \code{right_col}: Styling for the right column values.
-\item \code{border}: Character to use for borders (overrides \code{border_char}).
 \item \code{border_text}: Styling for the border.
 \item \code{title}: Styling for the title.
 \item \code{sep}: Separator character between left and right column.

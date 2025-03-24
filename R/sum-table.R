@@ -17,7 +17,6 @@
 #'   Can include the following components:
 #'   - `left_col`: Styling for the left column values.
 #'   - `right_col`: Styling for the right column values.
-#'   - `border`: Character to use for borders (overrides `border_char`).
 #'   - `border_text`: Styling for the border.
 #'   - `title`: Styling for the title.
 #'   - `sep`: Separator character between left and right column.
@@ -76,15 +75,10 @@ table_summary <- function(data,
                           header = FALSE,
                           center_table = FALSE,
                           border_char = "─",
-                          style = NULL,
+                          style = list(),
                           align = NULL, ...) {
     if (!is.data.frame(data) || ncol(data) != 2) {
         stop("Input must be a data frame with exactly 2 columns")
-    }
-
-    # Get border character from style if provided
-    if (!is.null(style) && !is.null(style$border)) {
-        border_char <- style$border
     }
 
     col_names <- colnames(data)
@@ -116,28 +110,31 @@ table_summary <- function(data,
         full_width <- left_width + right_width + 4 + sep_width
     }
 
+    # Create the horizontal line with the border character
     horizontal_line <- strrep(border_char, full_width)
 
-    # Style border if specified
+    # Fix for border_text styling
+    styled_horizontal_line <- horizontal_line
+
+    # Apply styling to the border line if border_text is specified
     if (!is.null(style) && !is.null(style$border_text)) {
         if (is.function(style$border_text)) {
-            horizontal_line <- style$border_text(list(value = horizontal_line))
+            # When it's a function, call it directly on the horizontal line string
+            styled_horizontal_line <- style$border_text(horizontal_line)
         } else if (is.character(style$border_text)) {
-            # Apply predefined border styles
-            if (style$border_text == "bold") {
-                horizontal_line <- cli::style_bold(horizontal_line)
-            } else if (style$border_text == "italic") {
-                horizontal_line <- cli::style_italic(horizontal_line)
-            } else if (style$border_text == "blue") {
-                horizontal_line <- cli::col_blue(horizontal_line)
-            } else if (style$border_text == "red") {
-                horizontal_line <- cli::col_red(horizontal_line)
-            } else if (style$border_text == "green") {
-                horizontal_line <- cli::col_green(horizontal_line)
-            } else if (style$border_text == "yellow") {
-                horizontal_line <- cli::col_yellow(horizontal_line)
-            }
-            # Add more border style combinations as needed
+            # Apply predefined styles based on string identifier
+            styled_horizontal_line <- switch(
+                style$border_text,
+                bold = cli::style_bold(horizontal_line),
+                italic = cli::style_italic(horizontal_line),
+                blue = cli::col_blue(horizontal_line),
+                red = cli::col_red(horizontal_line),
+                green = cli::col_green(horizontal_line),
+                yellow = cli::col_yellow(horizontal_line),
+                blue_bold = cli::col_blue(cli::style_bold(horizontal_line)),
+                red_italic = cli::col_red(cli::style_italic(horizontal_line)),
+                horizontal_line # Default case
+            )
         }
     }
 
@@ -160,25 +157,19 @@ table_summary <- function(data,
         # Style title if specified
         if (!is.null(style) && !is.null(style$title)) {
             if (is.function(style$title)) {
-                formatted_title <- style$title(list(value = formatted_title))
+                formatted_title <- style$title(formatted_title)
             } else if (is.character(style$title)) {
-                # Apply predefined title styles
-                if (style$title == "bold") {
-                    formatted_title <- cli::style_bold(formatted_title)
-                } else if (style$title == "italic") {
-                    formatted_title <- cli::style_italic(formatted_title)
-                } else if (style$title == "blue") {
-                    formatted_title <- cli::col_blue(formatted_title)
-                } else if (style$title == "red") {
-                    formatted_title <- cli::col_red(formatted_title)
-                } else if (style$title == "green") {
-                    formatted_title <- cli::col_green(formatted_title)
-                } else if (style$title == "yellow") {
-                    formatted_title <- cli::col_yellow(formatted_title)
-                } else if (style$title == "blue_bold") {
-                    formatted_title <- cli::col_blue(cli::style_bold(formatted_title))
-                }
-                # Add more title style combinations as needed
+                formatted_title <- switch(
+                    style$title,
+                    bold = cli::style_bold(formatted_title),
+                    italic = cli::style_italic(formatted_title),
+                    blue = cli::col_blue(formatted_title),
+                    red = cli::col_red(formatted_title),
+                    green = cli::col_green(formatted_title),
+                    yellow = cli::col_yellow(formatted_title),
+                    blue_bold = cli::col_blue(cli::style_bold(formatted_title)),
+                    formatted_title # Default case
+                )
             }
         }
 
@@ -189,7 +180,8 @@ table_summary <- function(data,
         }
     }
 
-    cat(prefix, horizontal_line, "\n", sep = "")
+    # Use the styled horizontal line
+    cat(prefix, styled_horizontal_line, "\n", sep = "")
 
     if (header) {
         if (is_split) {
@@ -202,7 +194,7 @@ table_summary <- function(data,
             header_row <- format_row_summary(col_names[1], col_names[2], left_width, right_width, style = style)
         }
         cat(prefix, header_row, "\n", sep = "")
-        cat(prefix, horizontal_line, "\n", sep = "")
+        cat(prefix, styled_horizontal_line, "\n", sep = "")
     }
 
     if (!is_split) {
@@ -245,5 +237,5 @@ table_summary <- function(data,
         }
     }
 
-    cat(prefix, horizontal_line, "\n", sep = "")
+    cat(prefix, styled_horizontal_line, "\n", sep = "")
 }
