@@ -15,6 +15,7 @@
 #' @param layout Logical. If `TRUE`, a layout box explaining the table structure is displayed.
 #' @param expected Logical. If `TRUE`, expected frequencies are displayed alongside observed frequencies.
 #' @param layout_center Logical. If `TRUE`, the layout box is centered in the terminal.
+#' @param header_underline If `TRUE`, the width of the line that indicates the "response" is shorten.
 #' @param center_table Logical. If `TRUE`, the entire table is centered in the terminal.
 #' @param style Default to `NULL`. If provided, the components in the displayed table can be styled.
 #'   It has 9 components to be styled:
@@ -56,6 +57,27 @@
 #'         )
 #'     )
 #'
+#' # A large table (from https://blogs.sas.com/content/iml/2018/04/02/chi-square-rows-columns-sas.html)
+#' matrix(
+#'     c(6, 51, 69, 68, 28,
+#'       16, 94, 90, 94, 47,
+#'       0, 37, 69, 55, 38),
+#'     byrow = TRUE,
+#'     ncol = 5,
+#'     dimnames = list(
+#'         "Eyes" = c("blue", "brown", "green"),
+#'         "Hair" = c("black", "dark", "fair", "medium", "red")
+#'     )
+#' ) |>
+#'     cross_table(
+#'         percentage = "all",
+#'         header_underline = T,
+#'         style = list(
+#'             expected = "italic"
+#'         ),
+#'         center_table = T
+#'     )
+#'
 #' @export
 cross_table <- function(data,
                         percentage = NULL,
@@ -63,6 +85,7 @@ cross_table <- function(data,
                         expected = TRUE,
                         layout_center = FALSE,
                         center_table = FALSE,
+                        header_underline = FALSE,
                         style = NULL, ...) {
     observed <- as.matrix(data)
     row_totals <- rowSums(observed)
@@ -444,11 +467,32 @@ cross_table <- function(data,
         )
         styled_main_col <- process_style(style$y_side, y_main_ctx)
 
-        col_name_header <- sprintf("  %-*s%s  ", col_widths[1], "",
-                                   center_text_x2(styled_main_col, main_col_width))
+        if (center_table) {
+            col_name_header <- sprintf("%-*s%s", col_widths[1] - 3, "",
+                               center_text_x2(styled_main_col, main_col_width))
+        } else {
+            col_name_header <- sprintf("  %-*s%s  ", col_widths[1], "",
+                               center_text_x2(styled_main_col, main_col_width))
+        }
+
         table_lines <- c(table_lines, col_name_header)
 
-        table_lines <- c(table_lines, horizontal_line)
+        if (header_underline) {
+            header_underline_width <- main_col_width
+            if (center_table) {
+                header_underline_prefix <- sprintf("  %-*s", col_widths[1] - 5, "")
+            } else {
+                header_underline_prefix <- sprintf("  %-*s", col_widths[1] + 1, "")
+            }
+
+            header_underline_line <- paste0(header_underline_prefix,
+                                            paste0(rep("─", header_underline_width - 4), collapse = ""),
+                                            "  ")
+            table_lines <- c(table_lines, header_underline_line)
+        } else {
+            table_lines <- c(table_lines, horizontal_line)
+        }
+
         table_lines <- c(table_lines, paste0(header_row, "  "))
         table_lines <- c(table_lines, horizontal_line)
 
@@ -554,7 +598,7 @@ cross_table <- function(data,
 
     if (center_table) {
         for (line in table_lines) {
-            print_centered(line)
+            print_centered(line, center_table = TRUE)
         }
     } else {
         for (line in table_lines) {

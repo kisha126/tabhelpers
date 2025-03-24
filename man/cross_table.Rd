@@ -11,6 +11,7 @@ cross_table(
   expected = TRUE,
   layout_center = FALSE,
   center_table = FALSE,
+  header_underline = FALSE,
   style = NULL,
   ...
 )
@@ -35,6 +36,8 @@ Options include:
 \item{layout_center}{Logical. If \code{TRUE}, the layout box is centered in the terminal.}
 
 \item{center_table}{Logical. If \code{TRUE}, the entire table is centered in the terminal.}
+
+\item{header_underline}{If \code{TRUE}, the width of the line that indicates the "response" is shorten.}
 
 \item{style}{Default to \code{NULL}. If provided, the components in the displayed table can be styled.
 It has 9 components to be styled:
@@ -83,6 +86,27 @@ matrix(c(10, 20, 30, 40), nrow = 2, byrow = TRUE) |> # Use `\%>\%` from `magritt
             border_text = "cyan",
             title = \(ctx) cli::style_bold(cli::col_blue(ctx$formatted_text))
         )
+    )
+
+# A large table (from https://blogs.sas.com/content/iml/2018/04/02/chi-square-rows-columns-sas.html)
+matrix(
+    c(6, 51, 69, 68, 28,
+      16, 94, 90, 94, 47,
+      0, 37, 69, 55, 38),
+    byrow = TRUE,
+    ncol = 5,
+    dimnames = list(
+        "Eyes" = c("blue", "brown", "green"),
+        "Hair" = c("black", "dark", "fair", "medium", "red")
+    )
+) |>
+    cross_table(
+        percentage = "all",
+        header_underline = T,
+        style = list(
+            expected = "italic"
+        ),
+        center_table = T
     )
 
 }
