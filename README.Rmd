@@ -1,0 +1,104 @@
+---
+output: github_document
+---
+
+```{r, include = FALSE}
+options(cli.unicode = FALSE)
+options(crayon.enabled = TRUE)
+
+ansi_aware_handler = function(x, options) {
+    paste0(
+        "<pre class=\"r-output\"><code>",
+        fansi::sgr_to_html(x = x, warn = FALSE, term.cap = "256"),
+        "</code></pre>"
+    )
+}
+
+knitr::knit_hooks$set(
+    output = ansi_aware_handler, 
+    message = ansi_aware_handler, 
+    warning = ansi_aware_handler,
+    error = ansi_aware_handler
+)
+
+knitr::opts_chunk$set(
+    collapse = TRUE,
+    # comment = "#>",
+    comment = NA, 
+    fig.path = "man/figures/README-",
+    out.width = "100%"
+)
+```
+
+# tabhelpers
+
+The goal of `tabhelpers` is to provide a collection of helper functions that assist in printing and formatting data frames, enhancing table display with customizable styles and alignment. This is especially useful in displaying statistical results in R console/command line.
+
+> **Note**: The package is currently **under construction** and not yet available on CRAN.
+
+## Installation
+
+You can install the development version of `tabhelpers` from GitHub with:
+
+```r
+# install.packages("devtools")
+devtools::install_github("kisha126/tabhelpers")
+```
+
+## Example
+
+Here’s a basic example that demonstrates how to use `tabhelpers` to format and style a table:
+
+```{r example}
+library(tabhelpers)
+
+mtcars |> 
+    tibble::rownames_to_column() |> 
+    table_default(
+        justify_cols = list("1" = "right"),
+        style_colnames = list(
+            "mpg" = function(ctx) cli::col_red(cli::style_bold(ctx$formatted_value)),
+            "cyl" = "blue_italic"
+        ),
+        style_columns = list(
+            "mpg" = function(ctx) {
+                val <- as.numeric(ctx$value)
+                if (val > 20) cli::col_green(ctx$formatted_value)
+                else if (val > 15) cli::col_yellow(ctx$formatted_value)
+                else cli::col_red(ctx$formatted_value)
+            }
+        ),
+        digits = 1,
+        center_table = TRUE,
+        n_space = 2
+    )
+```
+
+Changing the default `border_char` value:
+
+```{r}
+mtcars |> 
+    tibble::rownames_to_column() |> 
+    table_default(
+        justify_cols = list("1" = "right"),
+        style_colnames = list(
+            "mpg" = function(ctx) cli::col_red(cli::style_bold(ctx$formatted_value)),
+            "cyl" = "blue_italic"
+        ),
+        style_columns = list(
+            "mpg" = function(ctx) {
+                val <- as.numeric(ctx$value)
+                if (val > 20) cli::col_green(ctx$formatted_value)
+                else if (val > 15) cli::col_yellow(ctx$formatted_value)
+                else cli::col_red(ctx$formatted_value)
+            }
+        ),
+        digits = 1,
+        border_char = "=",
+        center_table = TRUE,
+        n_space = 2
+    )
+```
+
+This package allows users to apply advanced styling and alignment to tables, such as color coding, column alignment, and borders, making it easier to view large datasets directly in the command line.
+
