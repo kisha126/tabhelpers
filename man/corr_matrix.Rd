@@ -70,6 +70,8 @@ Supported types are "variable1", "variable2", "correlation", "statistic", "pvalu
 "lower_ci", and "upper_ci".}
 
 \item{...}{Additional arguments (not currently used).}
+
+\item{border_char}{A character to draw border. Default is \code{"─"}.}
 }
 \value{
 Invisibly returns the formatted data that was printed.

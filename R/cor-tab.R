@@ -113,6 +113,7 @@ cor_table <- function(data,
 #' @param col_mapping Named list mapping column types to specific column names in the data.
 #'   Supported types are "variable1", "variable2", "correlation", "statistic", "pvalue",
 #'   "lower_ci", and "upper_ci".
+#' @param border_char A character to draw border. Default is `"─"`.
 #' @param ... Additional arguments (not currently used).
 #'
 #' @details
