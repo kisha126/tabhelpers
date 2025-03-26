@@ -265,13 +265,18 @@ format_row_summary <- function(left,
 # For correlation matrix
 
 format_row_cm <- function(row, col_widths, left_align_first = FALSE, pos = FALSE) {
+    row <- as.character(row)
+
     formatted <- sapply(seq_along(row), function(i) {
+        x <- row[i]
+
         if (i == 1 && left_align_first) {
-            format(row[i], width = col_widths[i], justify = "left")
+            format(x, width = col_widths[i], justify = "left")
         } else {
-            center_text(row[i], col_widths[i], pos = pos)
+            align_center(x, col_widths[i], pos = pos)
         }
     })
+
     paste0("  ", paste(formatted, collapse = "   "), "  ")
 }
 

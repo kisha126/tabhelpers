@@ -21,6 +21,8 @@ corr_matrix(
   center_table = FALSE,
   center_layout = FALSE,
   col_mapping = NULL,
+  border_char = "─",
+  style = list(),
   ...
 )
 }
@@ -69,9 +71,24 @@ doesn't exist, a warning is issued.}
 Supported types are "variable1", "variable2", "correlation", "statistic", "pvalue",
 "lower_ci", and "upper_ci".}
 
-\item{...}{Additional arguments (not currently used).}
-
 \item{border_char}{A character to draw border. Default is \code{"─"}.}
+
+\item{style}{A list controlling the visual styling of table elements using ANSI formatting.
+Can include the following components:
+\itemize{
+\item \code{corr}: Styling for the correlation values.
+\item \code{statistic}: Styling for the test statistics.
+\item \code{pval}: Styling for the p-values.
+\item \code{lower_ci}: Styling for the lower Confidence Interval values.
+\item \code{upper_ci}: Styling for the upper Confidence Interval values.
+\item \code{border_text}: Styling for the border.
+\item \code{title}: Styling for the title.
+}
+
+Each style component can be either a predefined style string (e.g., "blue", "red_italic", "bold")
+or a function that takes a context list with/without a \code{value} element and returns the styled text.}
+
+\item{...}{Additional arguments (not currently used).}
 }
 \value{
 Invisibly returns the formatted data that was printed.
@@ -119,5 +136,29 @@ if (requireNamespace("rstatix", quietly = TRUE)) {
       )
     )
 }
+
+# With style
+
+mtcars |>
+    rstatix::cor_test(disp, wt, hp) |>
+    corr_matrix(
+        statistic = "statistic",
+        pval = "p",
+        ci_lc = conf.low,
+        ci_uc = conf.high,
+        style = list(
+            corr = 'blue',
+            statistic = 'red',
+            pval = 'green',
+            lower_ci = 'magenta',
+            upper_ci = 'cyan',
+            title = "red",
+            border_text = function(x) {
+                st_style <- cli::make_ansi_style("limegreen")
+                st_style(x)
+            }
+        ),
+        layout_view = TRUE
+    )
 
 }

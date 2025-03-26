@@ -1,83 +1,24 @@
-cor_table <- function(data,
-                      method,
-                      left_align_first = FALSE,
-                      var_lookup = NULL,
-                      CI = FALSE,
-                      digits = 2,
-                      border_char = "─",
-                      center_table = FALSE, ...) {
-    data <- tibble::as_tibble(data)
-    data <- dplyr::mutate(data, dplyr::across(where(is.factor), as.character))
-    data <- dplyr::mutate(data, dplyr::across(everything(), ~ifelse(is.na(.), "", .)))
-    data <- dplyr::mutate(data, dplyr::across(where(is.numeric), ~{
-        if(all(. %% 1 == 0, na.rm = TRUE)) {
-            as.character(.)
-        } else {
-            formatted <- format(round(., digits), nsmall = digits)
-            formatted <- sub("(\\.0+)$", "", formatted)
-            formatted <- sub("\\.00$", "", formatted)
-            formatted
-        }
-    }))
-    data <- dplyr::mutate(data, dplyr::across(everything(), as.character))
+align_center <- function(text, width, pos = FALSE) {
+    clean_text <- gsub("\033\\[[0-9;]*m", "", text)
 
-    col_names <- colnames(data)
-    if (!is.null(var_lookup)) {
-        col_names[-1] <- var_lookup[col_names[-1]]
-    }
-    data_chars <- as.matrix(data)
-
-    non_empty_rows <- apply(data_chars, 1, function(x) any(nzchar(trimws(x))))
-    if (any(!non_empty_rows)) {
-        data_chars <- data_chars[non_empty_rows, , drop = FALSE]
-    }
-
-    col_widths <- pmax(nchar(col_names), apply(data_chars, 2, function(x) max(nchar(x))))
-
-    total_width <- sum(as.numeric(col_widths)) + 3 * (length(col_widths) - 1) + 4
-
-    horizontal_line <- paste0(rep(border_char, total_width), collapse = "")
-
-    title <- glue::glue("{method} Correlation Matrix") |> as.character()
-
-    if (center_table) {
-        term_width <- cli::console_width()
-        padding <- max(0, floor((term_width - total_width) / 2))
-        padding_str <- paste0(rep(" ", padding), collapse = "")
+    if (pos) {
+        padding <- max(width - nchar(clean_text), 0)
     } else {
-        padding_str <- ""
+        padding <- width - nchar(clean_text)
     }
 
-    cat("\n", padding_str, center_text(title, total_width), "\n", sep = "")
-    cat(padding_str, horizontal_line, "\n", sep = "")
-    cat(padding_str, format_row_cm(col_names, col_widths, left_align_first), "\n", sep = "")
-    cat(padding_str, horizontal_line, "\n", sep = "")
-
-    first_col_vals <- data_chars[, 1]
-    unique_vars <- unique(first_col_vals[nzchar(first_col_vals)])
-    var_count <- length(unique_vars)
-
-    rows_per_var <- nrow(data_chars) / var_count
-
-    for (i in 1:var_count) {
-        start_idx <- (i - 1) * rows_per_var + 1
-        end_idx <- i * rows_per_var
-
-        for (j in start_idx:end_idx) {
-            if (j <= nrow(data_chars)) {
-                row_data <- data_chars[j, ]
-                if (any(nzchar(trimws(row_data)))) {
-                    cat(padding_str, format_row_cm(row_data, col_widths, left_align_first), "\n", sep = "")
-                }
-            }
-        }
-
-        if (i < var_count) {
-            cat(padding_str, horizontal_line, "\n", sep = "")
-        }
+    if (padding < 0) {
+        return(substr(text, 1, width))
     }
 
-    cat(padding_str, horizontal_line, "\n", sep = "")
+    left_pad <- floor(padding / 2)
+    right_pad <- ceiling(padding / 2)
+
+    paste0(
+        paste(rep(" ", left_pad), collapse = ""),
+        text,
+        paste(rep(" ", right_pad), collapse = "")
+    )
 }
 
 #' Display a Correlation Matrix Table in R Command Line
@@ -114,6 +55,18 @@ cor_table <- function(data,
 #'   Supported types are "variable1", "variable2", "correlation", "statistic", "pvalue",
 #'   "lower_ci", and "upper_ci".
 #' @param border_char A character to draw border. Default is `"─"`.
+#' @param style A list controlling the visual styling of table elements using ANSI formatting.
+#'   Can include the following components:
+#'   - `corr`: Styling for the correlation values.
+#'   - `statistic`: Styling for the test statistics.
+#'   - `pval`: Styling for the p-values.
+#'   - `lower_ci`: Styling for the lower Confidence Interval values.
+#'   - `upper_ci`: Styling for the upper Confidence Interval values.
+#'   - `border_text`: Styling for the border.
+#'   - `title`: Styling for the title.
+#'
+#'   Each style component can be either a predefined style string (e.g., "blue", "red_italic", "bold")
+#'   or a function that takes a context list with/without a `value` element and returns the styled text.
 #' @param ... Additional arguments (not currently used).
 #'
 #' @details
@@ -158,6 +111,30 @@ cor_table <- function(data,
 #'     )
 #' }
 #'
+#' # With style
+#'
+#' mtcars |>
+#'     rstatix::cor_test(disp, wt, hp) |>
+#'     corr_matrix(
+#'         statistic = "statistic",
+#'         pval = "p",
+#'         ci_lc = conf.low,
+#'         ci_uc = conf.high,
+#'         style = list(
+#'             corr = 'blue',
+#'             statistic = 'red',
+#'             pval = 'green',
+#'             lower_ci = 'magenta',
+#'             upper_ci = 'cyan',
+#'             title = "red",
+#'             border_text = function(x) {
+#'                 st_style <- cli::make_ansi_style("limegreen")
+#'                 st_style(x)
+#'             }
+#'         ),
+#'         layout_view = TRUE
+#'     )
+#'
 #' @export
 corr_matrix <- function(data,
                         method = NULL,
@@ -174,7 +151,88 @@ corr_matrix <- function(data,
                         digits = 3,
                         center_table = FALSE,
                         center_layout = FALSE,
-                        col_mapping = NULL, ...) {
+                        col_mapping = NULL,
+                        border_char = "─",
+                        style = list(), ...) {
+
+    # Require cli package for styling
+    if (!requireNamespace("cli", quietly = TRUE)) {
+        stop("The 'cli' package is required for styling. Please install it.")
+    }
+
+    # Default styling functions
+    default_style <- function(x) x
+
+    # Enhanced style function to handle more complex styling
+    getStyleFunction <- function(style_string) {
+        # Split combined styles
+        styles <- strsplit(style_string, "_")[[1]]
+
+        # Map style strings to CLI functions
+        style_map <- list(
+            'red' = cli::col_red,
+            'blue' = cli::col_blue,
+            'green' = cli::col_green,
+            'yellow' = cli::col_yellow,
+            'magenta' = cli::col_magenta,
+            'cyan' = cli::col_cyan,
+            'white' = cli::col_white,
+            'black' = cli::col_black,
+            'bold' = cli::style_bold,
+            'italic' = cli::style_italic,
+            'underline' = cli::style_underline
+        )
+
+        # Compose the styling functions
+        style_funcs <- lapply(styles, function(s) {
+            if (s %in% names(style_map)) {
+                return(style_map[[s]])
+            } else {
+                warning(paste("Unknown style:", s, ". Using default."))
+                return(default_style)
+            }
+        })
+
+        # Reduce the functions to a single composition
+        Reduce(function(f, g) function(x) f(g(x)), style_funcs, right = TRUE)
+    }
+
+    # Prepare styling functions with more robust handling
+    prepare_style_function <- function(style_spec, default_style_func = default_style) {
+        if (is.null(style_spec)) return(default_style_func)
+
+        if (is.character(style_spec)) {
+            return(getStyleFunction(style_spec))
+        } else if (is.function(style_spec)) {
+            return(style_spec)
+        } else {
+            return(default_style_func)
+        }
+    }
+
+    # Prepare all style functions
+    style_corr <- prepare_style_function(style$corr)
+    style_statistic <- prepare_style_function(style$statistic)
+    style_pval <- prepare_style_function(style$pval)
+    style_lower_ci <- prepare_style_function(style$lower_ci)
+    style_upper_ci <- prepare_style_function(style$upper_ci)
+
+    # Special handling for border and title with fallback
+    style_border <- if (!is.null(style$border_text)) {
+        if (is.character(style$border_text)) {
+            getStyleFunction(style$border_text)
+        } else if (is.function(style$border_text)) {
+            style$border_text
+        } else default_style
+    } else default_style
+
+    style_title <- if (!is.null(style$title)) {
+        if (is.character(style$title)) {
+            getStyleFunction(style$title)
+        } else if (is.function(style$title)) {
+            style$title
+        } else default_style
+    } else default_style
 
     corr_col <- if (!is.null(substitute(corr))) deparse(ensym(corr))
     var1_col_spec <- if (!is.null(substitute(var1))) deparse(ensym(var1))
@@ -183,6 +241,35 @@ corr_matrix <- function(data,
     pval_col <- if (!is.null(substitute(pval))) deparse(ensym(pval))
     ci_lc_col <- if (!is.null(substitute(ci_lc))) deparse(ensym(ci_lc))
     ci_uc_col <- if (!is.null(substitute(ci_uc))) deparse(ensym(ci_uc))
+
+    find_column <- function(col_spec, standard_names, type = NULL, position = NULL) {
+        if (!is.null(col_spec)) {
+            if (col_spec %in% names(data)) {
+                return(col_spec)
+            } else {
+                return(NULL)
+            }
+        }
+
+        if (!is.null(col_mapping) && !is.null(type) && type %in% names(col_mapping)) {
+            mapped_col <- col_mapping[[type]]
+            if (mapped_col %in% names(data)) {
+                return(mapped_col)
+            }
+        }
+
+        for (name in standard_names) {
+            if (name %in% names(data)) {
+                return(name)
+            }
+        }
+
+        if (!is.null(position) && position <= ncol(data)) {
+            return(names(data)[position])
+        }
+
+        return(NULL)
+    }
 
     if (is.matrix(data)) {
         if (isSymmetric(unname(as.matrix(data)))) {
@@ -208,10 +295,6 @@ corr_matrix <- function(data,
             col_names <- c("Variable", vars)
             result_df <- as.data.frame(result_matrix, stringsAsFactors = FALSE)
             colnames(result_df) <- col_names
-
-            invisible(cor_table(result_df, method = method[1], left_align_first = TRUE,
-                                var_lookup = NULL, CI = FALSE, digits = digits,
-                                center_table = center_table))
         } else {
             stop("The input matrix must be a correlation matrix (symmetric).")
         }
@@ -226,35 +309,6 @@ corr_matrix <- function(data,
             } else {
                 method <- "Unknown"
             }
-        }
-
-        find_column <- function(col_spec, standard_names, type = NULL, position = NULL) {
-            if (!is.null(col_spec)) {
-                if (col_spec %in% names(data)) {
-                    return(col_spec)
-                } else {
-                    return(NULL)
-                }
-            }
-
-            if (!is.null(col_mapping) && !is.null(type) && type %in% names(col_mapping)) {
-                mapped_col <- col_mapping[[type]]
-                if (mapped_col %in% names(data)) {
-                    return(mapped_col)
-                }
-            }
-
-            for (name in standard_names) {
-                if (name %in% names(data)) {
-                    return(name)
-                }
-            }
-
-            if (!is.null(position) && position <= ncol(data)) {
-                return(names(data)[position])
-            }
-
-            return(NULL)
         }
 
         var1_col <- find_column(var1_col_spec, c("var1", "variable1", "x", "X"), "variable1", 1)
@@ -302,34 +356,59 @@ corr_matrix <- function(data,
 
         show_ci <- !is.null(ci_low_col) || !is.null(ci_high_col)
 
+        elements_to_show <- 1
+        if (!is.null(stat_col)) elements_to_show <- elements_to_show + 1
+        if (!is.null(p_col)) elements_to_show <- elements_to_show + 1
+        if (show_ci) elements_to_show <- elements_to_show + 1
+
         if (layout_view) {
             cat("\n")
             layout_width <- 29
 
             if (center_layout) {
-                term_width <- cli::console_width()
-                padding <- max(0, floor((term_width - layout_width) / 2))
-                padding_str <- paste0(rep(" ", padding), collapse = "")
+                term_width <- tryCatch({
+                    as.numeric(system("tput cols", intern = TRUE))
+                }, error = function(e) {
+                    as.double(options("width"))
+                })
+
+                left_padding <- max(0, floor((term_width - layout_width) / 2))
+                padding_str <- paste0(rep(" ", left_padding), collapse = "")
             } else {
                 padding_str <- ""
             }
 
-            top_line <- paste0("┌", paste0(rep("─", layout_width - 2), collapse = ""), "┐")
-            middle_line <- paste0("├", paste0(rep("─", layout_width - 2), collapse = ""), "┤")
-            bottom_line <- paste0("└", paste0(rep("─", layout_width - 2), collapse = ""), "┘")
+            # Apply border styling
+            top_line <- paste0(
+                style_border("┌"),
+                style_border(paste0(rep(border_char, layout_width - 2), collapse = "")),
+                style_border("┐")
+            )
+            middle_line <- paste0(
+                style_border("├"),
+                style_border(paste0(rep(border_char, layout_width - 2), collapse = "")),
+                style_border("┤")
+            )
+            bottom_line <- paste0(
+                style_border("└"),
+                style_border(paste0(rep(border_char, layout_width - 2), collapse = "")),
+                style_border("┘")
+            )
 
+            # Apply title styling
             cat(padding_str, top_line, "\n", sep = "")
-            cat(padding_str, "| ", center_text("Layout for Corr. Matrix", layout_width - 4), " |", "\n", sep = "")
+            cat(padding_str, "| ", style_title(align_center("Layout for Corr. Matrix", layout_width - 4)), " |", "\n", sep = "")
             cat(padding_str, middle_line, "\n", sep = "")
 
-            cat(padding_str, "| ", center_text("< corr >", layout_width - 4), " |", "\n", sep = "")
+            # Apply layout section styles using the correlation style
+            cat(padding_str, "| ", style_corr(align_center("< corr >", layout_width - 4)), " |", "\n", sep = "")
 
             if (!is.null(stat_col)) {
-                cat(padding_str, "| ", center_text("< statistic >", layout_width - 4), " |", "\n", sep = "")
+                cat(padding_str, "| ", style_statistic(align_center("< statistic >", layout_width - 4)), " |", "\n", sep = "")
             }
 
             if (!is.null(p_col)) {
-                cat(padding_str, "| ", center_text("< p-value >", layout_width - 4), " |", "\n", sep = "")
+                cat(padding_str, "| ", style_pval(align_center("< p-value >", layout_width - 4)), " |", "\n", sep = "")
             }
 
             if (show_ci) {
@@ -342,7 +421,9 @@ corr_matrix <- function(data,
                 } else {
                     ci_text <- "< CI >"
                 }
-                cat(padding_str, "| ", center_text(ci_text, layout_width - 4), " |", "\n", sep = "")
+                cat(padding_str, "| ",
+                    style_lower_ci(align_center(ci_text, layout_width - 4)),
+                    " |", "\n", sep = "")
             }
 
             cat(padding_str, bottom_line, "\n", sep = "")
@@ -351,11 +432,6 @@ corr_matrix <- function(data,
 
         vars <- unique(c(data[[var1_col]], data[[var2_col]]))
         n <- length(vars)
-
-        elements_to_show <- 1
-        if (!is.null(stat_col)) elements_to_show <- elements_to_show + 1
-        if (!is.null(p_col)) elements_to_show <- elements_to_show + 1
-        if (show_ci) elements_to_show <- elements_to_show + 1
 
         result_matrix <- matrix("", nrow = n * elements_to_show, ncol = n + 1)
 
@@ -406,9 +482,90 @@ corr_matrix <- function(data,
         col_names <- c("Variable", vars)
         result_df <- as.data.frame(result_matrix, stringsAsFactors = FALSE)
         colnames(result_df) <- col_names
-
-        invisible(cor_table(result_df, method = method[1], left_align_first = TRUE,
-                            var_lookup = NULL, CI = FALSE, digits = digits,
-                            center_table = center_table))
     }
+
+    # Helper function to calculate effective character length (stripping ANSI codes)
+    effective_nchar <- function(x) {
+        nchar(gsub("\033\\[[0-9;]*m", "", x))
+    }
+
+    # Modify the col_widths calculation to handle styled text
+    col_widths <- sapply(1:ncol(result_df), function(col) {
+        max(
+            effective_nchar(colnames(result_df)[col]),
+            max(sapply(1:nrow(result_df), function(row) {
+                effective_nchar(result_matrix[row, col])
+            }))
+        )
+    })
+
+    total_width <- sum(as.numeric(col_widths)) + 3 * (length(col_widths) - 1) + 4
+
+    horizontal_line <- style_border(paste0(rep(border_char, total_width), collapse = ""))
+
+    title <- paste0(method, " Correlation Matrix")
+
+    # Apply centering if requested
+    prefix <- ""
+    if (center_table) {
+        term_width <- tryCatch({
+            as.numeric(system("tput cols", intern = TRUE))
+        }, error = function(e) {
+            as.double(options("width"))
+        })
+
+        left_padding <- max(0, floor((term_width - total_width) / 2))
+        prefix <- paste0(rep(" ", left_padding), collapse = "")
+    }
+
+    # Create a new matrix for styled output
+    styled_result_matrix <- result_matrix
+
+    # Apply styles to each element based on its position
+    for (i in 1:nrow(result_matrix)) {
+        for (j in 1:ncol(result_matrix)) {
+            if (j == 1) {
+                # Variable names - no special styling
+                next
+            }
+
+            # Determine which type of value this is based on row position
+            row_group <- (i - 1) %/% elements_to_show
+            row_in_group <- (i - 1) %% elements_to_show
+
+            if (result_matrix[i, j] == "1") {
+                styled_result_matrix[i, j] <- style_corr(result_matrix[i, j])
+            } else if (row_in_group == 0) {
+                # Correlation value
+                styled_result_matrix[i, j] <- style_corr(result_matrix[i, j])
+            } else if (row_in_group == 1 && !is.null(stat_col)) {
+                # Statistic value
+                styled_result_matrix[i, j] <- style_statistic(result_matrix[i, j])
+            } else if ((row_in_group == 2 || (row_in_group == 1 && is.null(stat_col))) && !is.null(p_col)) {
+                # P-value
+                styled_result_matrix[i, j] <- style_pval(result_matrix[i, j])
+            } else if (grepl("^\\[.+,.+\\]$", result_matrix[i, j])) {
+                # Confidence interval
+                ci_parts <- strsplit(gsub("\\[|\\]", "", result_matrix[i, j]), ",")[[1]]
+                styled_result_matrix[i, j] <- sprintf("[%s, %s]",
+                                                      style_lower_ci(trimws(ci_parts[1])),
+                                                      style_upper_ci(trimws(ci_parts[2])))
+            }
+        }
+    }
+
+    cat("\n", prefix, style_title(align_center(title, total_width)), "\n", sep = "")
+    cat(prefix, horizontal_line, "\n", sep = "")
+    cat(prefix, format_row_cm(colnames(result_df), col_widths, left_align_first = TRUE), "\n", sep = "")
+    cat(prefix, horizontal_line, "\n", sep = "")
+
+    for (i in 1:nrow(result_df)) {
+        cat(prefix, format_row_cm(styled_result_matrix[i, ], col_widths, left_align_first = TRUE), "\n", sep = "")
+
+        if (i %% elements_to_show == 0) {
+            cat(prefix, horizontal_line, "\n", sep = "")
+        }
+    }
+
+    invisible(result_df)
 }
