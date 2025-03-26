@@ -135,6 +135,42 @@ align_center <- function(text, width, pos = FALSE) {
 #'         layout_view = TRUE
 #'     )
 #'
+#' # Try conditional formatting in `corr` value
+#' iris |>
+#'     rstatix::cor_test(Sepal.Length, Sepal.Width, Petal.Length) |>
+#'     corr_matrix(
+#'         statistic = "statistic",
+#'         pval = "p",
+#'         ci_lc = conf.low,
+#'         ci_uc = conf.high,
+#'         style = list(
+#'             corr = function(x) {
+#'                 # First try to convert to numeric
+#'                 num_x <- suppressWarnings(as.numeric(x))
+#'                 if (!is.na(num_x)) {
+#'                     # If numeric, apply the conditional formatting
+#'                     num_x <- abs(num_x)
+#'                     if (num_x >= 0.8 & num_x <= 1) {
+#'                         cli::col_red(x)
+#'                     } else if (num_x >= 0.6 & num_x < 0.8) {
+#'                         cli::col_blue(x)
+#'                     } else if (num_x >= 0.4 & num_x < 0.6) {
+#'                         cli::col_yellow(x)
+#'                     } else {
+#'                         cli::col_green(x)
+#'                     }
+#'                 } else {
+#'                     cli::col_red(x)
+#'                 }
+#'             },
+#'             pval = \(x) if (x > 0.05) cli::style_italic(x) else cli::col_red(x),
+#'             lower_ci = 'magenta',
+#'             upper_ci = 'cyan',
+#'             title = "red"
+#'         ),
+#'         layout_view = TRUE
+#'     )
+#'
 #' @export
 corr_matrix <- function(data,
                         method = NULL,
@@ -366,11 +402,12 @@ corr_matrix <- function(data,
             layout_width <- 29
 
             if (center_layout) {
-                term_width <- tryCatch({
-                    as.numeric(system("tput cols", intern = TRUE))
-                }, error = function(e) {
-                    as.double(options("width"))
-                })
+                term_width <- as.double(options("width"))
+                # term_width <- tryCatch({
+                #     as.numeric(system("tput cols", intern = TRUE))
+                # }, error = function(e) {
+                #     as.double(options("width"))
+                # })
 
                 left_padding <- max(0, floor((term_width - layout_width) / 2))
                 padding_str <- paste0(rep(" ", left_padding), collapse = "")
@@ -414,15 +451,26 @@ corr_matrix <- function(data,
             if (show_ci) {
                 if (!is.null(ci_low_col) && !is.null(ci_high_col)) {
                     ci_text <- "< [Lower CI, Upper CI] >"
+                    ci_style_func <- function(text) {
+                        paste0(
+                            style_lower_ci(strsplit(text, ", ")[[1]][1]),
+                            ", ",
+                            style_upper_ci(strsplit(text, ", ")[[1]][2])
+                        )
+                    }
                 } else if (!is.null(ci_low_col)) {
                     ci_text <- "< [Lower CI, NA] >"
+                    ci_style_func <- style_lower_ci
                 } else if (!is.null(ci_high_col)) {
                     ci_text <- "< [NA, Upper CI] >"
+                    ci_style_func <- style_upper_ci
                 } else {
                     ci_text <- "< CI >"
+                    ci_style_func <- default_style
                 }
+
                 cat(padding_str, "| ",
-                    style_lower_ci(align_center(ci_text, layout_width - 4)),
+                    ci_style_func(align_center(ci_text, layout_width - 4)),
                     " |", "\n", sep = "")
             }
 
@@ -508,11 +556,12 @@ corr_matrix <- function(data,
     # Apply centering if requested
     prefix <- ""
     if (center_table) {
-        term_width <- tryCatch({
-            as.numeric(system("tput cols", intern = TRUE))
-        }, error = function(e) {
-            as.double(options("width"))
-        })
+        term_width <- as.double(options("width"))
+        # term_width <- tryCatch({
+        #     as.numeric(system("tput cols", intern = TRUE))
+        # }, error = function(e) {
+        #     as.double(options("width"))
+        # })
 
         left_padding <- max(0, floor((term_width - total_width) / 2))
         prefix <- paste0(rep(" ", left_padding), collapse = "")
