@@ -9,20 +9,19 @@ table_default(x, ...)
 
 \method{table_default}{default}(
   x,
-  justify_cols = NULL,
-  pos = FALSE,
+  justify_cols = "center",
   digits = 3,
   digits_by_col = NULL,
   scientific = FALSE,
   na_print = "",
   min_width = NULL,
-  border_char = "─",
+  border_char = options("tab_default")$tab_default$border_char,
   show_row_names = FALSE,
   center_table = FALSE,
   n_space = 2,
   style_colnames = NULL,
   style_columns = NULL,
-  ...
+  vb = list()
 )
 }
 \arguments{
@@ -36,8 +35,6 @@ table_default(x, ...)
 \item A vector of strings to apply to columns by position
 \item A named list (e.g., \code{list("1" = "left", "mpg" = "right")}) for specific columns
 }}
-
-\item{pos}{Logical. If \code{TRUE}, positive numbers are prefixed with a plus sign. Default is \code{FALSE}.}
 
 \item{digits}{Number of digits to round numeric columns to. Default is \code{3}.}
 
@@ -71,7 +68,20 @@ table_default(x, ...)
 (e.g., \code{list("mpg" = "green", "cyl" = "cyan")})
 \item A list of lambda functions that take a context object and return a styled string
 (e.g., \code{list("mpg" = function(ctx) { if(as.numeric(ctx$value) > 20) cli::col_green(ctx$formatted_value) else cli::col_red(ctx$formatted_value) })})
-}}
+}
+
+Hidden Feature: This parameter can be used to mutate the existing column, as well.}
+
+\item{vb}{Default is an empty list. Stands for "vertical border" to draw a vertical in a specific position.
+Should be a list that contains the following:
+\itemize{
+\item \code{char}: To provide a specific character to iteratively draw a vertical border. The \code{"│"} character is recommended.
+\item \code{after}: The position of the vertical border AFTER that column. Should be a vector of integers.
+}
+
+This feature is recommended in presenting a statistical result like the coefficient table in Linear Regression.}
+
+\item{pos}{Logical. If \code{TRUE}, positive numbers are prefixed with a plus sign. Default is \code{FALSE}.}
 }
 \description{
 This function takes a x frame or tibble and displays it in the command line with various formatting options.
@@ -132,5 +142,53 @@ table_default(head(mtcars),
               digits = 1,
               border_char = "=",
               center_table = TRUE)
+
+# With vertical line
+mtcars |>
+    tibble::rownames_to_column(var = "Car Names") |>
+    head(5) |>
+    table_default(
+        justify_cols = list("1" = "right", "mpg"="right"),
+        digits = 1,
+        center_table = TRUE,
+        n_space = 2,
+        style_columns = list(
+            "mpg" = function(ctx) {
+                val <- as.numeric(ctx$value)
+                if(val > 20) cli::col_green(ctx$formatted_value)
+                else if(val > 15) cli::col_yellow(ctx$formatted_value)
+                else cli::col_red(ctx$formatted_value)
+            }
+        ),
+        vb = list(char = "│", after = c(1, 10, 2))
+    )
+
+# Displaying Linear Regression output
+mtcars |>
+    lm(formula = mpg ~ wt + disp + hp) |>
+    broom::tidy() |>
+    table_default(
+        justify_cols = list("term" = "right"),
+        style_columns = list(
+            p.value = function(ctx) {
+                val <- as.numeric(ctx$formatted_value)
+                if (val < 0.05 & val >= 0.001) {
+                    cli::col_red(val)
+                } else if (val < 0.001) {
+                    rep_txt <- replace(val, val < 0.001, "<0.001")
+                    cli::style_bold(rep_txt)
+                } else {
+                    cli::style_italic(val)
+                }
+
+            }
+        ),
+        vb = list(
+            char = "│", after = 1
+        ),
+        n_space = 3,
+        center_table = TRUE
+    )
+
 
 }

@@ -3,6 +3,7 @@
 S3method(table_default,default)
 export(corr_matrix)
 export(cross_table)
+export(tabhelpers_options)
 export(table_default)
 export(table_summary)
 import(dplyr)

@@ -35,6 +35,15 @@ table_default <- function(x, ...) UseMethod("table_default")
 #'   - A list of lambda functions that take a context object and return a styled string
 #'     (e.g., `list("mpg" = function(ctx) { if(as.numeric(ctx$value) > 20) cli::col_green(ctx$formatted_value) else cli::col_red(ctx$formatted_value) })`)
 #'
+#'   Hidden Feature: This parameter can be used to mutate the existing column, as well.
+#'
+#' @param vb Default is an empty list. Stands for "vertical border" to draw a vertical in a specific position.
+#'   Should be a list that contains the following:
+#'   - `char`: To provide a specific character to iteratively draw a vertical border. The `"│"` character is recommended.
+#'   - `after`: The position of the vertical border AFTER that column. Should be a vector of integers.
+#'
+#'   This feature is recommended in presenting a statistical result like the coefficient table in Linear Regression.
+#'
 #' @examples
 #' # Basic usage
 #' table_default(head(mtcars))
@@ -86,6 +95,54 @@ table_default <- function(x, ...) UseMethod("table_default")
 #'               border_char = "=",
 #'               center_table = TRUE)
 #'
+#' # With vertical line
+#' mtcars |>
+#'     tibble::rownames_to_column(var = "Car Names") |>
+#'     head(5) |>
+#'     table_default(
+#'         justify_cols = list("1" = "right", "mpg"="right"),
+#'         digits = 1,
+#'         center_table = TRUE,
+#'         n_space = 2,
+#'         style_columns = list(
+#'             "mpg" = function(ctx) {
+#'                 val <- as.numeric(ctx$value)
+#'                 if(val > 20) cli::col_green(ctx$formatted_value)
+#'                 else if(val > 15) cli::col_yellow(ctx$formatted_value)
+#'                 else cli::col_red(ctx$formatted_value)
+#'             }
+#'         ),
+#'         vb = list(char = "│", after = c(1, 10, 2))
+#'     )
+#'
+#' # Displaying Linear Regression output
+#' mtcars |>
+#'     lm(formula = mpg ~ wt + disp + hp) |>
+#'     broom::tidy() |>
+#'     table_default(
+#'         justify_cols = list("term" = "right"),
+#'         style_columns = list(
+#'             p.value = function(ctx) {
+#'                 val <- as.numeric(ctx$formatted_value)
+#'                 if (val < 0.05 & val >= 0.001) {
+#'                     cli::col_red(val)
+#'                 } else if (val < 0.001) {
+#'                     rep_txt <- replace(val, val < 0.001, "<0.001")
+#'                     cli::style_bold(rep_txt)
+#'                 } else {
+#'                     cli::style_italic(val)
+#'                 }
+#'
+#'             }
+#'         ),
+#'         vb = list(
+#'             char = "│", after = 1
+#'         ),
+#'         n_space = 3,
+#'         center_table = TRUE
+#'     )
+#'
+#'
 #' @importFrom dplyr mutate across everything
 #' @importFrom tibble as_tibble
 #' @importFrom tidyselect where
@@ -93,78 +150,127 @@ table_default <- function(x, ...) UseMethod("table_default")
 #'
 #' @export
 table_default.default <- function(x,
-                                  justify_cols = NULL,
-                                  pos = FALSE,
+                                  justify_cols = "center",
                                   digits = 3,
                                   digits_by_col = NULL,
                                   scientific = FALSE,
                                   na_print = "",
                                   min_width = NULL,
-                                  border_char = "─",
+                                  border_char = options('tab_default')$tab_default$border_char,
                                   show_row_names = FALSE,
                                   center_table = FALSE,
                                   n_space = 2,
                                   style_colnames = NULL,
                                   style_columns = NULL,
-                                  ...) {
-    x <- tibble::as_tibble(x)
-    original_x <- x
+                                  vb = list()) {
 
-    if (show_row_names) {
-        x <- dplyr::mutate(x, row_names = rownames(as.data.frame(x)), .before = 1)
-        original_x <- dplyr::mutate(original_x, row_names = rownames(as.data.frame(original_x)), .before = 1)
+    if (!inherits(x, "data.frame")) {
+        x <- try(as.data.frame(x), silent = TRUE)
+        if (inherits(x, "try-error")) {
+            stop("`x` must be a data frame or coercible to one.", call. = FALSE)
+        }
+    }
+
+    # --- Input Validation and Preparation ---
+    if (!is.numeric(n_space) || n_space < 0) {
+        warning("`n_space` must be non-negative, using default 2.", call. = FALSE)
+        n_space = 2
+    }
+    n_space <- floor(n_space)
+
+    original_x <- x
+    x <- tibble::as_tibble(x, rownames = if (show_row_names) "row_names" else NA)
+
+    if (show_row_names && !"row_names" %in% names(x)) {
+        x <- dplyr::mutate(x, row_names = as.character(seq_len(nrow(x))), .before = 1)
+        original_x <- tibble::as_tibble(original_x) # Ensure tibble
+        original_x <- dplyr::mutate(original_x, row_names = as.character(seq_len(nrow(original_x))), .before = 1)
+
+    } else if (show_row_names && "row_names" %in% names(x)) {
+        x <- dplyr::relocate(x, "row_names", .before = 1)
+        if("row_names" %in% names(original_x)) {
+            original_x <- dplyr::relocate(tibble::as_tibble(original_x), "row_names", .before = 1)
+        }
+    }
+
+    if (nrow(x) == 0 && ncol(x) == 0) {
+        cat("Empty data frame (0 rows, 0 columns)\n")
+        return(invisible(NULL))
     }
 
     x <- dplyr::mutate(x, dplyr::across(tidyselect::where(is.factor), as.character))
-    x <- dplyr::mutate(x, dplyr::across(dplyr::everything(), ~ifelse(is.na(.), na_print, .)))
+    format_num_col <- function(col, col_name) {
+        digits_val <- digits_by_col[[col_name]] %||% digits
 
-    if (!is.null(digits_by_col)) {
-        for (col_name in names(digits_by_col)) {
-            if (col_name %in% names(x) && is.numeric(x[[col_name]])) {
-                x[[col_name]] <- if(scientific) {
-                    format(x[[col_name]], digits = digits_by_col[[col_name]], scientific = TRUE)
-                } else {
-                    format(round(x[[col_name]], digits = digits_by_col[[col_name]]),
-                           nsmall = digits_by_col[[col_name]])
-                }
-            }
+        is_int_like <- all(is.na(col) | (col %% 1 == 0))
+
+        formatted_col <- character(length(col))
+        na_idx <- is.na(col)
+        formatted_col[na_idx] <- na_print
+
+        if (is_int_like) {
+            formatted_col[!na_idx] <- format(col[!na_idx], scientific = FALSE, trim = TRUE)
+        } else if (scientific) {
+            formatted_col[!na_idx] <- format(col[!na_idx], digits = digits_val, scientific = TRUE, trim = TRUE)
+        } else {
+            formatted_col[!na_idx] <- format(round(col[!na_idx], digits = digits_val), nsmall = digits_val, scientific = FALSE, trim = TRUE)
         }
+        formatted_col
     }
 
-    x <- dplyr::mutate(x, dplyr::across(tidyselect::where(is.numeric), ~{
-        if(all(. %% 1 == 0, na.rm = TRUE)) {
-            as.character(.)
-        } else if(scientific) {
-            format(., digits = digits, scientific = TRUE)
-        } else {
-            format(round(., digits = digits), nsmall = digits)
-        }
-    }))
+    num_cols <- names(x)[sapply(x, is.numeric)]
+    for(col_name in num_cols) {
+        x[[col_name]] <- format_num_col(x[[col_name]], col_name)
+    }
 
+    x <- dplyr::mutate(x, dplyr::across(tidyselect::where(\(c) !is.numeric(c) && !is.character(c)), as.character))
+    x <- dplyr::mutate(x, dplyr::across(tidyselect::where(\(c) !is.numeric(c)), ~ ifelse(is.na(.), na_print, .)))
     x <- dplyr::mutate(x, dplyr::across(dplyr::everything(), as.character))
 
     col_names <- colnames(x)
-    x_chars <- as.matrix(x)
-
-    col_widths <- pmax(nchar(col_names),
-                       apply(x_chars, 2, function(x) max(nchar(x))))
-
-    if (!is.null(min_width)) {
-        col_widths <- pmax(col_widths, min_width)
+    if (ncol(x) == 0) {
+        if(show_row_names && "row_names" %in% names(x)) {
+            print(x)
+        } else {
+            cat("Data frame has 0 columns.\n")
+        }
+        return(invisible(NULL))
     }
 
-    total_width <- sum(as.numeric(col_widths)) + n_space * (length(col_widths) - 1) + 4
+    x_chars <- as.matrix(x)
+    col_widths <- apply(rbind(nchar(col_names), nchar(x_chars)), 2, max, na.rm = TRUE)
 
-    horizontal_line <- paste0(rep(border_char, total_width), collapse = "")
+    if (!is.null(min_width) && is.numeric(min_width)) {
+        col_widths <- pmax(col_widths, floor(min_width[1]))
+    }
+
+    border_char_v <- vb$char %||% "│"
+    after_cols_spec <- vb$after
+    after_cols_idx <- integer(0)
+
+    if (length(after_cols_spec) > 0) {
+        if (is.numeric(after_cols_spec)) {
+            after_cols_idx <- after_cols_spec
+        } else if (is.character(after_cols_spec)) {
+            after_cols_idx <- match(after_cols_spec, col_names)
+        }
+        valid_indices <- !is.na(after_cols_idx) & after_cols_idx > 0 & after_cols_idx < length(col_widths)
+        after_cols_idx <- sort(unique(after_cols_idx[valid_indices]))
+    }
+    n_borders <- length(after_cols_idx)
+
+    # --- Total Width and Centering ---
+    # Total width = Sum(widths) + NumSeparators*n_space + NumBorders*(1+nchar(border_char_v)) + 4 (side padding)
+    total_width <- sum(col_widths) + (length(col_widths) - 1) * n_space + n_borders * (1 + nchar(border_char_v)) + 4
 
     terminal_width <- if (center_table) {
         tryCatch({
             cli::console_width()
         }, error = function(e) {
-            as.double(options("width"))
+            as.integer(options("width")) %||% 80 # Fallback width
         })
     } else {
-        0
+        0 # No centering needed
     }
 
     left_padding <- if (center_table && terminal_width > total_width) {
@@ -173,23 +279,83 @@ table_default.default <- function(x,
         ""
     }
 
-    cat(left_padding, horizontal_line, "\n", sep = "")
+    # --- Horizontal Line Construction ---
+    # Function to create ───┬───┼───┴─── style lines
+    create_horizontal_line <- function(connector_char_mid, connector_left = border_char, connector_right = border_char) {
+        line <- paste0(connector_left, border_char)
 
-    # Format and print column names with styling
-    header_row <- format_row(col_names, col_widths, justify_cols = justify_cols,
-                             pos = pos, n_space = n_space, styles = style_colnames,
-                             col_data = original_x, is_header = TRUE)
-    cat(left_padding, header_row, "\n", sep = "")
+        for (i in seq_along(col_widths)) {
+            line <- paste0(line, paste0(rep(border_char, col_widths[i]), collapse = ""))
 
-    cat(left_padding, horizontal_line, "\n", sep = "")
-
-    # Format and print data rows with styling
-    for (i in 1:nrow(x_chars)) {
-        cat(left_padding, format_row(x_chars[i,], col_widths, justify_cols = justify_cols,
-                                     pos = pos, n_space = n_space, styles = style_columns,
-                                     col_data = original_x, is_header = FALSE), "\n", sep = "")
+            if (i < length(col_widths)) {
+                if (i %in% after_cols_idx) {
+                    line <- paste0(line,
+                                   border_char,
+                                   connector_char_mid,
+                                   paste0(rep(border_char, n_space), collapse=""))
+                } else {
+                    line <- paste0(line, paste0(rep(border_char, n_space), collapse = ""))
+                }
+            }
+        }
+        line <- paste0(line, border_char, connector_right)
+        line
     }
 
-    cat(left_padding, horizontal_line, "\n", sep = "")
+    # Define the specific lines using appropriate connectors
+    connectors <- getOption("tab_default")
+    top_line <- create_horizontal_line(connectors$vb_top)
+    middle_line <- create_horizontal_line(connectors$vb_mid)
+    bottom_line <- create_horizontal_line(connectors$vb_bottom)
+
+    # If no vertical borders, use simple lines
+    if (n_borders == 0) {
+        simple_line <- paste0(rep(border_char, total_width), collapse = "")
+        simple_width <- sum(col_widths) + max(0, length(col_widths) - 1) * n_space + 4
+        simple_line <- paste0(rep(border_char, simple_width), collapse = "")
+
+        top_line    <- paste0(border_char, paste0(rep(border_char, simple_width-2), collapse=""), border_char)
+        middle_line <- paste0(border_char, paste0(rep(border_char, simple_width-2), collapse=""), border_char)
+        bottom_line <- paste0(border_char, paste0(rep(border_char, simple_width-2), collapse=""), border_char)
+        if (length(col_widths) <= 1) {
+            middle_line <- simple_line
+        }
+    }
+
+
+    # --- Print Table ---
+    cat(left_padding, top_line, "\n", sep = "")
+
+    # Use stats::setNames to ensure names are present for format_row lookup
+    header_values <- stats::setNames(col_names, col_names)
+    header_row <- format_row(header_values, col_widths,
+                             justify_cols = justify_cols,
+                             n_space = n_space,
+                             styles = style_colnames,
+                             col_data = original_x,
+                             is_header = TRUE,
+                             vb = vb)
+    cat(left_padding, header_row, "\n", sep = "")
+
+    cat(left_padding, middle_line, "\n", sep = "")
+
+    if (nrow(x_chars) > 0) {
+        for (i in 1:nrow(x_chars)) {
+            current_row <- stats::setNames(x_chars[i,], col_names)
+            cat(left_padding,
+                format_row(current_row, col_widths,
+                           justify_cols = justify_cols,
+                           n_space = n_space,
+                           styles = style_columns,
+                           col_data = original_x,
+                           is_header = FALSE,
+                           vb = vb),
+                "\n", sep = "")
+        }
+    }
+
+    cat(left_padding, bottom_line, "\n", sep = "")
+
+    invisible(NULL)
 }
 

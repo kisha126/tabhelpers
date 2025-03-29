@@ -18,16 +18,31 @@
 #' @param header_underline If `TRUE`, the width of the line that indicates the "response" is shorten.
 #' @param center_table Logical. If `TRUE`, the entire table is centered in the terminal.
 #' @param style Default to `NULL`. If provided, the components in the displayed table can be styled.
-#'   It has 9 components to be styled:
-#'   - `observed` You can style the displayed observed values.
-#'   - `expected`: You can style the displayed expected values.
-#'   - `total`: You can style the displayed total frequencies (marginal and grand total).
-#'   - `row_percentage`: You can style the displayed row percentages.
-#'   - `col_percentage`: You can style the displayed column percentages.
-#'   - `total_percentage`: You can style the marginal percentages.
-#'   - `title`: You can style the title.
-#'   - `border`: You can choose what symbol you can use to draw the table.
-#'   - `border_text`: You can style the table
+#'   It has 9 components that can be styled:
+#'   - `observed`: Style for the displayed observed values.
+#'   - `expected`: Style for the displayed expected values.
+#'   - `total`: Style for the displayed total frequencies (marginal and grand total).
+#'   - `row_percentage`: Style for the displayed row percentages.
+#'   - `col_percentage`: Style for the displayed column percentages.
+#'   - `total_percentage`: Style for the marginal percentages.
+#'   - `title`: Style for the title of the table.
+#'   - `border`: Character used to draw the table borders (must be a single character).
+#'   - `border_text`: Style for the table borders.
+#'
+#'   Each style component can be specified in two ways:
+#'   1. As a string: Use a combination of style names from the `cli` package, separated by
+#'      underscores (e.g., "blue_italic", "red_bold"). Available styles include colors
+#'      (e.g., "red", "blue", "green") and text formats (e.g., "bold", "italic", "underline").
+#'   2. As a function: A lambda function that takes a context object and returns formatted text.
+#'      The context object contains:
+#'      - `formatted_text`: The text to be styled
+#'      - `value`: The original numeric value
+#'      - `type`: The component type (e.g., "observed", "expected")
+#'      - `is_total`: Logical indicating if the cell is a total
+#'      - `raw`: Logical indicating if the value is raw (TRUE) or formatted (FALSE)
+#'
+#'
+#'
 #' @param ... Additional arguments (not currently used).
 #'
 #' @return Invisibly returns the formatted cross-tabulation table as a matrix. The table is printed to the console/command line.
@@ -77,6 +92,34 @@
 #'         ),
 #'         center_table = T
 #'     )
+#' # The previous example without using `cli` package
+#' matrix(
+#'     c(6, 51, 69, 68, 28,
+#'       16, 94, 90, 94, 47,
+#'       0, 37, 69, 55, 38),
+#'     byrow = TRUE,
+#'     ncol = 5,
+#'     dimnames = list(
+#'         "Eyes" = c("blue", "brown", "green"),
+#'         "Hair" = c("black", "dark", "fair", "medium", "red")
+#'     )
+#' ) |>
+#'     cross_table(
+#'         percentage = "all",
+#'         header_underline = TRUE,
+#'         style = list(
+#'             # Italic using ANSI escape sequence
+#'             expected = \(ctx) paste0("\033[3m", ctx$formatted_text, "\033[23m"),
+#'             # Bold using ANSI escape sequence
+#'             total_percentage = \(ctx) paste0("\033[1m", ctx$formatted_text, "\033[22m"),
+#'             # Blue text using ANSI escape sequence
+#'             observed = \(ctx) paste0("\033[34m", ctx$formatted_text, "\033[39m"),
+#'             # Change border character
+#'             border = "-"
+#'         ),
+#'         center_table = TRUE
+#'     )
+#'
 #'
 #' @export
 cross_table <- function(data,
@@ -120,7 +163,7 @@ cross_table <- function(data,
         total_percentage = function(ctx) ctx$formatted_text,
         total = function(ctx) ctx$formatted_text,
         title = function(ctx) ctx$formatted_text,
-        border = "─",
+        border = options('tab_default')$tab_default$border_char,
         border_text = function(ctx) ctx$formatted_text
     )
 
@@ -308,7 +351,7 @@ cross_table <- function(data,
     border_char <- if (is.character(style$border) && nchar(style$border) == 1) {
         style$border
     } else {
-        "─"
+        options('tab_default')$tab_default$border_char
     }
 
     horizontal_border <- paste0(rep(border_char, total_width), collapse = "")
@@ -486,7 +529,7 @@ cross_table <- function(data,
             }
 
             header_underline_line <- paste0(header_underline_prefix,
-                                            paste0(rep("─", header_underline_width - 4), collapse = ""),
+                                            paste0(rep(options('tab_default')$tab_default[[5]], header_underline_width - 4), collapse = ""),
                                             "  ")
             table_lines <- c(table_lines, header_underline_line)
         } else {

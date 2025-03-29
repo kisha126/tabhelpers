@@ -40,17 +40,33 @@ Options include:
 \item{header_underline}{If \code{TRUE}, the width of the line that indicates the "response" is shorten.}
 
 \item{style}{Default to \code{NULL}. If provided, the components in the displayed table can be styled.
-It has 9 components to be styled:
+It has 9 components that can be styled:
 \itemize{
-\item \code{observed} You can style the displayed observed values.
-\item \code{expected}: You can style the displayed expected values.
-\item \code{total}: You can style the displayed total frequencies (marginal and grand total).
-\item \code{row_percentage}: You can style the displayed row percentages.
-\item \code{col_percentage}: You can style the displayed column percentages.
-\item \code{total_percentage}: You can style the marginal percentages.
-\item \code{title}: You can style the title.
-\item \code{border}: You can choose what symbol you can use to draw the table.
-\item \code{border_text}: You can style the table
+\item \code{observed}: Style for the displayed observed values.
+\item \code{expected}: Style for the displayed expected values.
+\item \code{total}: Style for the displayed total frequencies (marginal and grand total).
+\item \code{row_percentage}: Style for the displayed row percentages.
+\item \code{col_percentage}: Style for the displayed column percentages.
+\item \code{total_percentage}: Style for the marginal percentages.
+\item \code{title}: Style for the title of the table.
+\item \code{border}: Character used to draw the table borders (must be a single character).
+\item \code{border_text}: Style for the table borders.
+}
+
+Each style component can be specified in two ways:
+\enumerate{
+\item As a string: Use a combination of style names from the \code{cli} package, separated by
+underscores (e.g., "blue_italic", "red_bold"). Available styles include colors
+(e.g., "red", "blue", "green") and text formats (e.g., "bold", "italic", "underline").
+\item As a function: A lambda function that takes a context object and returns formatted text.
+The context object contains:
+\itemize{
+\item \code{formatted_text}: The text to be styled
+\item \code{value}: The original numeric value
+\item \code{type}: The component type (e.g., "observed", "expected")
+\item \code{is_total}: Logical indicating if the cell is a total
+\item \code{raw}: Logical indicating if the value is raw (TRUE) or formatted (FALSE)
+}
 }}
 
 \item{...}{Additional arguments (not currently used).}
@@ -108,5 +124,33 @@ matrix(
         ),
         center_table = T
     )
+# The previous example without using `cli` package
+matrix(
+    c(6, 51, 69, 68, 28,
+      16, 94, 90, 94, 47,
+      0, 37, 69, 55, 38),
+    byrow = TRUE,
+    ncol = 5,
+    dimnames = list(
+        "Eyes" = c("blue", "brown", "green"),
+        "Hair" = c("black", "dark", "fair", "medium", "red")
+    )
+) |>
+    cross_table(
+        percentage = "all",
+        header_underline = TRUE,
+        style = list(
+            # Italic using ANSI escape sequence
+            expected = \(ctx) paste0("\033[3m", ctx$formatted_text, "\033[23m"),
+            # Bold using ANSI escape sequence
+            total_percentage = \(ctx) paste0("\033[1m", ctx$formatted_text, "\033[22m"),
+            # Blue text using ANSI escape sequence
+            observed = \(ctx) paste0("\033[34m", ctx$formatted_text, "\033[39m"),
+            # Change border character
+            border = "-"
+        ),
+        center_table = TRUE
+    )
+
 
 }
