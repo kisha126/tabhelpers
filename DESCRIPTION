@@ -15,4 +15,8 @@ Imports:
     dplyr,
     tidyr,
     glue,
-    cli
+    cli,
+    base,
+    tibble,
+    tidyselect,
+    stringr
