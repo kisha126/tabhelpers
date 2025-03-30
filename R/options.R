@@ -5,7 +5,15 @@
         vb_mid = "\u253C",            # '┼'
         vb_bottom = "\u2534",         # '┴'
         border_char = "\u2500",       # '─'
-        header_underline = "\u2500"   # '─'
+        header_underline = "\u2500",  # '─'
+        truncate_message = TRUE,      # Whether to show truncation messages
+        nrows = 10                    # Default number of rows to display
+    ))
+
+    # Load cli themes
+    cli::cli_div(theme = list(
+        span.info = list(color = "cyan"),
+        span.warning = list(color = "yellow")
     ))
 }
 

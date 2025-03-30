@@ -24,6 +24,8 @@ table_default <- function(x, ...) UseMethod("table_default")
 #' @param show_row_names Logical. If `TRUE`, row names are displayed. Default is `FALSE`.
 #' @param center_table Logical. If `TRUE`, the table is centered in the terminal. Default is `FALSE`.
 #' @param n_space Number of spaces between columns. Default is `2`.
+#' @param nrow Number of rows to display. Tables with more rows will be truncated with informative messages.
+#'   Default is the value set in `options("tab_default")$nrows`, which is typically `10`.
 #' @param style_colnames Styling for column headers. Can be:
 #'   - A character vector or list specifying cli color/style functions
 #'     (e.g., `list("mpg" = "red", "cyl" = "blue_bold")`)
@@ -75,6 +77,13 @@ table_default <- function(x, ...) UseMethod("table_default")
 #'                   }
 #'                 }
 #'               ))
+#'
+#' # Set the number of rows to display
+#' table_default(mtcars, nrow = 15)
+#'
+#' # Change the global default for number of rows
+#' tabhelpers_options("nrows", 20)
+#' table_default(mtcars)  # Will show up to 20 rows
 #'
 #' # Comprehensive example with lambda functions
 #' table_default(head(mtcars),
@@ -142,11 +151,66 @@ table_default <- function(x, ...) UseMethod("table_default")
 #'         center_table = TRUE
 #'     )
 #'
+#' ## Extend it with functional programming
+#' library(dplyr)
+#'
+#' print_table = function(x) {
+#'     groups = unique(x[[1]])
+#'     groups = sort(groups)
+#'
+#'     for (i in seq_along(groups)) {
+#'         group_value = groups[i]
+#'         group_data = x[x[[1]] == group_value, -1]
+#'
+#'         col_name = toupper(substr(names(x)[1], 1, 1))
+#'         col_name = paste0(col_name, substr(names(x)[1], 2, nchar(names(x)[1])))
+#'
+#'         cat(glue::glue("{i}. {col_name} = {group_value}"), "\n\n")
+#'
+#'         tabhelpers::table_default(
+#'             group_data,
+#'             justify_cols = list("term" = "left"),
+#'             center_table = T,
+#'             style_columns = list(
+#'                 p.value = function(ctx) {
+#'                     val <- as.numeric(ctx$formatted_value)
+#'                     if (val < 0.05 & val >= 0.001) {
+#'                         cli::col_red(val)
+#'                     } else if (val < 0.001) {
+#'                         rep_txt <- replace(val, val < 0.001, "<0.001")
+#'                         cli::style_bold(rep_txt)
+#'                     } else {
+#'                         cli::style_italic(val)
+#'                     }
+#'
+#'                 }
+#'             ),
+#'             vb = list(
+#'                 char = "│", after = 1
+#'             )
+#'         )
+#'
+#'         cat("\n")
+#'     }
+#'
+#'     invisible(x)
+#' }
+#'
+#' mtcars |>
+#'     group_by(cyl) |>
+#'     summarise(
+#'         lm_model = list({
+#'             model <- lm(mpg ~ wt)
+#'             broom::tidy(model)
+#'         })
+#'     ) |>
+#'     tidyr::unnest(lm_model) |>
+#'     print_table()
 #'
 #' @importFrom dplyr mutate across everything
 #' @importFrom tibble as_tibble
 #' @importFrom tidyselect where
-#' @importFrom cli console_width col_red col_blue col_green
+#' @importFrom cli console_width col_red col_blue col_green cli_alert_info cli_alert_warning
 #'
 #' @export
 table_default.default <- function(x,
@@ -162,6 +226,7 @@ table_default.default <- function(x,
                                   n_space = 2,
                                   style_colnames = NULL,
                                   style_columns = NULL,
+                                  nrows = getOption("tab_default")$nrows,
                                   vb = list()) {
 
     if (!inherits(x, "data.frame")) {
@@ -177,6 +242,22 @@ table_default.default <- function(x,
         n_space = 2
     }
     n_space <- floor(n_space)
+
+    # Validate nrow parameter
+    if (!is.numeric(nrows) || nrows < 0) {
+        warning("`nrows` must be non-negative, using default 10.", call. = FALSE)
+        nrows <- 10
+    }
+    nrow <- floor(nrows)
+
+    # Store original row count for truncation message
+    original_row_count <- nrow(x)
+
+    # Check if truncation will be needed
+    truncated <- original_row_count > nrow
+
+    # Truncate if necessary
+    if (truncated) x <- head(x, nrow)
 
     original_x <- x
     x <- tibble::as_tibble(x, rownames = if (show_row_names) "row_names" else NA)
@@ -324,6 +405,11 @@ table_default.default <- function(x,
 
 
     # --- Print Table ---
+    # Display truncation message before table if needed
+    if (truncated) {
+        cli::cli_alert_info("Showing {nrow} of {original_row_count} rows")
+    }
+
     cat(left_padding, top_line, "\n", sep = "")
 
     # Use stats::setNames to ensure names are present for format_row lookup
@@ -355,6 +441,11 @@ table_default.default <- function(x,
     }
 
     cat(left_padding, bottom_line, "\n", sep = "")
+
+    # Display truncation message after table if needed
+    if (truncated) {
+        cli::cli_alert_warning("Displayed only {nrow} of {original_row_count} rows. Set 'nrow' parameter to show more rows.")
+    }
 
     invisible(NULL)
 }

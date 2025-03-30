@@ -21,6 +21,7 @@ table_default(x, ...)
   n_space = 2,
   style_colnames = NULL,
   style_columns = NULL,
+  nrows = getOption("tab_default")$nrows,
   vb = list()
 )
 }
@@ -82,6 +83,9 @@ Should be a list that contains the following:
 This feature is recommended in presenting a statistical result like the coefficient table in Linear Regression.}
 
 \item{pos}{Logical. If \code{TRUE}, positive numbers are prefixed with a plus sign. Default is \code{FALSE}.}
+
+\item{nrow}{Number of rows to display. Tables with more rows will be truncated with informative messages.
+Default is the value set in \code{options("tab_default")$nrows}, which is typically \code{10}.}
 }
 \description{
 This function takes a x frame or tibble and displays it in the command line with various formatting options.
@@ -123,6 +127,13 @@ table_default(head(mtcars),
                   }
                 }
               ))
+
+# Set the number of rows to display
+table_default(mtcars, nrow = 15)
+
+# Change the global default for number of rows
+tabhelpers_options("nrows", 20)
+table_default(mtcars)  # Will show up to 20 rows
 
 # Comprehensive example with lambda functions
 table_default(head(mtcars),
@@ -190,5 +201,60 @@ mtcars |>
         center_table = TRUE
     )
 
+## Extend it with functional programming
+library(dplyr)
+
+print_table = function(x) {
+    groups = unique(x[[1]])
+    groups = sort(groups)
+
+    for (i in seq_along(groups)) {
+        group_value = groups[i]
+        group_data = x[x[[1]] == group_value, -1]
+
+        col_name = toupper(substr(names(x)[1], 1, 1))
+        col_name = paste0(col_name, substr(names(x)[1], 2, nchar(names(x)[1])))
+
+        cat(glue::glue("{i}. {col_name} = {group_value}"), "\n\n")
+
+        tabhelpers::table_default(
+            group_data,
+            justify_cols = list("term" = "left"),
+            center_table = T,
+            style_columns = list(
+                p.value = function(ctx) {
+                    val <- as.numeric(ctx$formatted_value)
+                    if (val < 0.05 & val >= 0.001) {
+                        cli::col_red(val)
+                    } else if (val < 0.001) {
+                        rep_txt <- replace(val, val < 0.001, "<0.001")
+                        cli::style_bold(rep_txt)
+                    } else {
+                        cli::style_italic(val)
+                    }
+
+                }
+            ),
+            vb = list(
+                char = "│", after = 1
+            )
+        )
+
+        cat("\n")
+    }
+
+    invisible(x)
+}
+
+mtcars |>
+    group_by(cyl) |>
+    summarise(
+        lm_model = list({
+            model <- lm(mpg ~ wt)
+            broom::tidy(model)
+        })
+    ) |>
+    tidyr::unnest(lm_model) |>
+    print_table()
 
 }
