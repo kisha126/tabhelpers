@@ -2,6 +2,7 @@
 
 export(corr_matrix)
 export(cross_table)
+export(matrix_table)
 export(tabhelpers_options)
 export(table_default)
 export(table_summary)
