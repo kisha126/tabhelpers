@@ -86,11 +86,11 @@
 #' ) |>
 #'     cross_table(
 #'         percentage = "all",
-#'         header_underline = T,
+#'         header_underline = TRUE,
 #'         style = list(
 #'             expected = "italic"
 #'         ),
-#'         center_table = T
+#'         center_table = TRUE
 #'     )
 #' # The previous example without using `cli` package
 #' matrix(
@@ -141,14 +141,14 @@ cross_table <- function(data,
         ifelse(is.na(x) | x == 100, "", sprintf("%.0f%%", x))
     }
 
-    if (percentage == FALSE || is.null(percentage) || length(percentage) == 0) {
+    if (is.null(percentage) || length(percentage) == 0) {
         show_row_pct <- show_col_pct <- show_total_pct <- FALSE
-    } else if (percentage == TRUE || "all" %in% percentage) {
+    } else if (identical(percentage, TRUE) || any(c("all", "ALL") %in% percentage)) {
         show_row_pct <- show_col_pct <- show_total_pct <- TRUE
     } else {
-        show_row_pct <- "by_row" %in% percentage
-        show_col_pct <- "by_col" %in% percentage
-        show_total_pct <- "by_total" %in% percentage
+        show_row_pct <- any(c("by_row", "row", "rows") %in% percentage)
+        show_col_pct <- any(c("by_col", "col", "cols", "column", "columns") %in% percentage)
+        show_total_pct <- any(c("by_total", "total") %in% percentage)
     }
 
     row_percentages <- sweep(observed, 1, row_totals, "/") * 100
@@ -365,9 +365,9 @@ cross_table <- function(data,
         cat("\n")
         layout_width <- 36
         layout_box <- c(
-            paste0("┌", paste0(rep("─", layout_width - 2), collapse = ""), "┐"),
+            paste0("\u250C", paste0(rep("\u2500", layout_width - 2), collapse = ""), "\u2510"),
             paste0("| ", center_text_x2("Layout for Cont. Table", layout_width - 4), " |"),
-            paste0("├", paste0(rep("─", layout_width - 2), collapse = ""), "┤")
+            paste0("\u251C", paste0(rep("\u2500", layout_width - 2), collapse = ""), "\u2524")
         )
 
         if (expected) {
@@ -454,8 +454,7 @@ cross_table <- function(data,
                             paste0("| ", center_text_x2(styled_total_pct, layout_width - 4), " |"))
         }
 
-        layout_box <- c(layout_box,
-                        paste0("└", paste0(rep("─", layout_width - 2), collapse = ""), "┘"))
+        layout_box <- c(layout_box, paste0("\u2514", paste0(rep(getOption("tab_default")$border_char, layout_width - 2), collapse = ""), "\u2518"))
 
         if (layout_center) {
             for (line in layout_box) {

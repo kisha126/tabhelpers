@@ -54,7 +54,7 @@ align_center <- function(text, width, pos = FALSE) {
 #' @param col_mapping Named list mapping column types to specific column names in the data.
 #'   Supported types are "variable1", "variable2", "correlation", "statistic", "pvalue",
 #'   "lower_ci", and "upper_ci".
-#' @param border_char A character to draw border. Default is `"─"`.
+#' @param border_char A character to draw border. Default is `"\u2500"`.
 #' @param style A list controlling the visual styling of table elements using ANSI formatting.
 #'   Can include the following components:
 #'   - `corr`: Styling for the correlation values.
@@ -91,8 +91,10 @@ align_center <- function(text, width, pos = FALSE) {
 #' corr_matrix(cor(mtcars[, 1:4]), method = "Pearson")
 #'
 #' # With a data frame from rstatix::cor_test()
-#' if (requireNamespace("rstatix", quietly = TRUE)) {
-#'   mtcars |>
+#'
+#' require(rstatix)
+#'
+#' mtcars |>
 #'     rstatix::cor_test(disp, wt, hp) |>
 #'     corr_matrix(
 #'       statistic = statistic,
@@ -100,16 +102,14 @@ align_center <- function(text, width, pos = FALSE) {
 #'       layout_view = TRUE
 #'     )
 #'
-#'   # Using col_mapping for custom column names
-#'   mtcars |>
+#' mtcars |>
 #'     rstatix::cor_test(disp, wt, hp) |>
 #'     corr_matrix(
-#'       col_mapping = list(
-#'         statistic = "statistic",
-#'         pvalue = "p"
-#'       )
+#'         col_mapping = list(
+#'             statistic = "statistic",
+#'             pvalue = "p"
+#'         )
 #'     )
-#' }
 #'
 #' # With style
 #'
@@ -188,7 +188,7 @@ corr_matrix <- function(data,
                         center_table = FALSE,
                         center_layout = FALSE,
                         col_mapping = NULL,
-                        border_char = "─",
+                        border_char = getOption("tab_default")$border_char,
                         style = list(), ...) {
 
     # Require cli package for styling
@@ -196,15 +196,11 @@ corr_matrix <- function(data,
         stop("The 'cli' package is required for styling. Please install it.")
     }
 
-    # Default styling functions
     default_style <- function(x) x
 
-    # Enhanced style function to handle more complex styling
     getStyleFunction <- function(style_string) {
-        # Split combined styles
         styles <- strsplit(style_string, "_")[[1]]
 
-        # Map style strings to CLI functions
         style_map <- list(
             'red' = cli::col_red,
             'blue' = cli::col_blue,
@@ -219,7 +215,6 @@ corr_matrix <- function(data,
             'underline' = cli::style_underline
         )
 
-        # Compose the styling functions
         style_funcs <- lapply(styles, function(s) {
             if (s %in% names(style_map)) {
                 return(style_map[[s]])
@@ -229,11 +224,9 @@ corr_matrix <- function(data,
             }
         })
 
-        # Reduce the functions to a single composition
         Reduce(function(f, g) function(x) f(g(x)), style_funcs, right = TRUE)
     }
 
-    # Prepare styling functions with more robust handling
     prepare_style_function <- function(style_spec, default_style_func = default_style) {
         if (is.null(style_spec)) return(default_style_func)
 
@@ -246,7 +239,6 @@ corr_matrix <- function(data,
         }
     }
 
-    # Prepare all style functions
     style_corr <- prepare_style_function(style$corr)
     style_statistic <- prepare_style_function(style$statistic)
     style_pval <- prepare_style_function(style$pval)
@@ -316,6 +308,9 @@ corr_matrix <- function(data,
 
             n <- length(vars)
             result_matrix <- matrix("", nrow = n, ncol = n + 1)
+
+            # Setting elements_to_show for matrix case
+            elements_to_show <- 1
 
             for (i in 1:n) {
                 for (j in 1:n) {
@@ -417,19 +412,19 @@ corr_matrix <- function(data,
 
             # Apply border styling
             top_line <- paste0(
-                style_border("┌"),
+                style_border("\u250C"),  # ┌
                 style_border(paste0(rep(border_char, layout_width - 2), collapse = "")),
-                style_border("┐")
+                style_border("\u2510")   # ┐
             )
             middle_line <- paste0(
-                style_border("├"),
+                style_border("\u251C"),  # ├
                 style_border(paste0(rep(border_char, layout_width - 2), collapse = "")),
-                style_border("┤")
+                style_border("\u2524")   # ┤
             )
             bottom_line <- paste0(
-                style_border("└"),
+                style_border("\u2514"),  # └
                 style_border(paste0(rep(border_char, layout_width - 2), collapse = "")),
-                style_border("┘")
+                style_border("\u2518")   # ┘
             )
 
             # Apply title styling
@@ -532,7 +527,6 @@ corr_matrix <- function(data,
         colnames(result_df) <- col_names
     }
 
-    # Helper function to calculate effective character length (stripping ANSI codes)
     effective_nchar <- function(x) {
         nchar(gsub("\033\\[[0-9;]*m", "", x))
     }

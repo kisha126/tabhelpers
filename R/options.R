@@ -1,6 +1,7 @@
 .onLoad <- function(libname, pkgname) {
     # For `table_default` function
     options(tab_default = list(
+        vb_char = "\u2502",           # '│
         vb_top = "\u252C",            # '┬'
         vb_mid = "\u253C",            # '┼'
         vb_bottom = "\u2534",         # '┴'

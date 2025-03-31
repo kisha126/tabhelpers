@@ -21,7 +21,7 @@ corr_matrix(
   center_table = FALSE,
   center_layout = FALSE,
   col_mapping = NULL,
-  border_char = "─",
+  border_char = getOption("tab_default")$border_char,
   style = list(),
   ...
 )
@@ -71,7 +71,7 @@ doesn't exist, a warning is issued.}
 Supported types are "variable1", "variable2", "correlation", "statistic", "pvalue",
 "lower_ci", and "upper_ci".}
 
-\item{border_char}{A character to draw border. Default is \code{"─"}.}
+\item{border_char}{A character to draw border. Default is \code{"\\u2500"}.}
 
 \item{style}{A list controlling the visual styling of table elements using ANSI formatting.
 Can include the following components:
@@ -117,8 +117,10 @@ column names in your data frame. For example:
 corr_matrix(cor(mtcars[, 1:4]), method = "Pearson")
 
 # With a data frame from rstatix::cor_test()
-if (requireNamespace("rstatix", quietly = TRUE)) {
-  mtcars |>
+
+require(rstatix)
+
+mtcars |>
     rstatix::cor_test(disp, wt, hp) |>
     corr_matrix(
       statistic = statistic,
@@ -126,16 +128,14 @@ if (requireNamespace("rstatix", quietly = TRUE)) {
       layout_view = TRUE
     )
 
-  # Using col_mapping for custom column names
-  mtcars |>
+mtcars |>
     rstatix::cor_test(disp, wt, hp) |>
     corr_matrix(
-      col_mapping = list(
-        statistic = "statistic",
-        pvalue = "p"
-      )
+        col_mapping = list(
+            statistic = "statistic",
+            pvalue = "p"
+        )
     )
-}
 
 # With style
 

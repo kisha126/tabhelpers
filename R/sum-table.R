@@ -12,7 +12,7 @@
 #'           If `NULL`, the table is not split.
 #' @param header A logical value. If `TRUE`, the column names of `data` are displayed as a header.
 #' @param center_table A logical value. If `TRUE`, the table is centered in the terminal.
-#' @param border_char Character used for borders. Default is `"─"`.
+#' @param border_char Character used for borders. Default is `"\u2500"`.
 #' @param style A list controlling the visual styling of table elements using ANSI formatting.
 #'   Can include the following components:
 #'   - `left_col`: Styling for the left column values.
@@ -74,7 +74,7 @@ table_summary <- function(data,
                           l = NULL,
                           header = FALSE,
                           center_table = FALSE,
-                          border_char = "─",
+                          border_char = getOption("tab_default")$border_char,
                           style = list(),
                           align = NULL, ...) {
     if (!is.data.frame(data) || ncol(data) != 2) {

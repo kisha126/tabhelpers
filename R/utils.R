@@ -136,7 +136,7 @@ format_row <- function(row, col_widths, justify_cols = NULL, n_space = 2, styles
     })
 
     # --- Add Vertical Borders ---
-    border_char <- vb$char %||% "│"
+    border_char <- vb$char %||% getOption("tab_default")$vb_char
     after_cols_spec <- vb$after # Indices or names
 
     if (length(after_cols_spec) > 0) {
@@ -260,7 +260,7 @@ format_row_summary <- function(left,
             } else if (is.character(style$left_col)) {
                 # Apply predefined styles from cli
                 if (style$left_col == "bold") {
-                    left_formatted <- cli::col_br(left_formatted)
+                    left_formatted <- cli::style_bold(left_formatted)
                 } else if (style$left_col == "italic") {
                     left_formatted <- cli::style_italic(left_formatted)
                 } else if (style$left_col == "blue") {

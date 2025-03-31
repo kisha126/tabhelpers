@@ -1,10 +1,12 @@
 Package: tabhelpers
 Type: Package
 Title: Helpers for displaying tables in command line
-Version: 0.1.0.1
+Version: 0.1.0.2
 Author: Joshua Marie Ongcoy
 Maintainer: Joshua Marie Ongcoy <joshuaongcoy26@gmail.com>
-Description: Collection of functions to print the data frames in command line
+Description: Collection of functions to print the data frames in command line. 
+    This package provides helpers to display a statistical results in a data frame,
+    contingency table, correlation matrix, and a summary table in 2 columns form.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
@@ -14,9 +16,12 @@ Imports:
     rlang,
     dplyr,
     tidyr,
-    glue,
     cli,
-    base,
     tibble,
     tidyselect,
-    stringr
+    stringr,
+    utils
+Suggests:
+    broom,
+    rstatix,
+    glue

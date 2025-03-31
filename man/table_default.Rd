@@ -2,12 +2,9 @@
 % Please edit documentation in R/table-default.R
 \name{table_default}
 \alias{table_default}
-\alias{table_default.default}
 \title{Display a table in the command line with customizable formatting.}
 \usage{
-table_default(x, ...)
-
-\method{table_default}{default}(
+table_default(
   x,
   justify_cols = "center",
   digits = 3,
@@ -22,13 +19,12 @@ table_default(x, ...)
   style_colnames = NULL,
   style_columns = NULL,
   nrows = getOption("tab_default")$nrows,
-  vb = list()
+  vb = list(),
+  ...
 )
 }
 \arguments{
 \item{x}{A data frame or tibble to display.}
-
-\item{...}{Additional arguments passed to specific methods.}
 
 \item{justify_cols}{Controls column text alignment. Can be:
 \itemize{
@@ -47,7 +43,7 @@ table_default(x, ...)
 
 \item{min_width}{Minimum column width. Default is \code{NULL}.}
 
-\item{border_char}{Character used for borders. Default is \code{"─"}.}
+\item{border_char}{Character used for borders. Default is \code{"\\u2500"}.}
 
 \item{show_row_names}{Logical. If \code{TRUE}, row names are displayed. Default is \code{FALSE}.}
 
@@ -73,29 +69,24 @@ table_default(x, ...)
 
 Hidden Feature: This parameter can be used to mutate the existing column, as well.}
 
+\item{nrows}{Number of rows to display. Tables with more rows will be truncated with informative messages.
+Default is the value set in \code{options("tab_default")$nrows}, which is typically \code{10}.}
+
 \item{vb}{Default is an empty list. Stands for "vertical border" to draw a vertical in a specific position.
 Should be a list that contains the following:
 \itemize{
-\item \code{char}: To provide a specific character to iteratively draw a vertical border. The \code{"│"} character is recommended.
+\item \code{char}: To provide a specific character to iteratively draw a vertical border. The \code{"\\u2502"} character is recommended.
 \item \code{after}: The position of the vertical border AFTER that column. Should be a vector of integers.
 }
 
 This feature is recommended in presenting a statistical result like the coefficient table in Linear Regression.}
 
-\item{pos}{Logical. If \code{TRUE}, positive numbers are prefixed with a plus sign. Default is \code{FALSE}.}
-
-\item{nrow}{Number of rows to display. Tables with more rows will be truncated with informative messages.
-Default is the value set in \code{options("tab_default")$nrows}, which is typically \code{10}.}
+\item{...}{Additional arguments passed to specific methods.}
 }
 \description{
 This function takes a x frame or tibble and displays it in the command line with various formatting options.
 The table can be customized in terms of alignment, number formatting, column width, and more.
 }
-\section{Methods (by class)}{
-\itemize{
-\item \code{table_default(default)}: Default method for displaying tables.
-
-}}
 \examples{
 # Basic usage
 table_default(head(mtcars))
@@ -171,10 +162,13 @@ mtcars |>
                 else cli::col_red(ctx$formatted_value)
             }
         ),
-        vb = list(char = "│", after = c(1, 10, 2))
+        vb = list(char = getOption("tab_default")$vb_char, after = c(1, 10, 2))
     )
 
 # Displaying Linear Regression output
+require(broom)
+require(rstatix)
+
 mtcars |>
     lm(formula = mpg ~ wt + disp + hp) |>
     broom::tidy() |>
@@ -195,14 +189,16 @@ mtcars |>
             }
         ),
         vb = list(
-            char = "│", after = 1
+            char = getOption("tab_default")$vb_char, after = 1
         ),
         n_space = 3,
         center_table = TRUE
     )
 
 ## Extend it with functional programming
-library(dplyr)
+require(dplyr)
+require(tidyr)
+require(glue)
 
 print_table = function(x) {
     groups = unique(x[[1]])
@@ -220,7 +216,7 @@ print_table = function(x) {
         tabhelpers::table_default(
             group_data,
             justify_cols = list("term" = "left"),
-            center_table = T,
+            center_table = TRUE,
             style_columns = list(
                 p.value = function(ctx) {
                     val <- as.numeric(ctx$formatted_value)
@@ -236,7 +232,7 @@ print_table = function(x) {
                 }
             ),
             vb = list(
-                char = "│", after = 1
+                char = getOption("tab_default")$vb_char, after = 1
             )
         )
 

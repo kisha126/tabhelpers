@@ -10,7 +10,7 @@ table_summary(
   l = NULL,
   header = FALSE,
   center_table = FALSE,
-  border_char = "─",
+  border_char = getOption("tab_default")$border_char,
   style = list(),
   align = NULL,
   ...
@@ -28,7 +28,7 @@ If \code{NULL}, the table is not split.}
 
 \item{center_table}{A logical value. If \code{TRUE}, the table is centered in the terminal.}
 
-\item{border_char}{Character used for borders. Default is \code{"─"}.}
+\item{border_char}{Character used for borders. Default is \code{"\\u2500"}.}
 
 \item{style}{A list controlling the visual styling of table elements using ANSI formatting.
 Can include the following components:

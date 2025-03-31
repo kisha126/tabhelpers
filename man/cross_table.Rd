@@ -118,11 +118,11 @@ matrix(
 ) |>
     cross_table(
         percentage = "all",
-        header_underline = T,
+        header_underline = TRUE,
         style = list(
             expected = "italic"
         ),
-        center_table = T
+        center_table = TRUE
     )
 # The previous example without using `cli` package
 matrix(

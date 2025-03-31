@@ -4,28 +4,19 @@
 #' The table can be customized in terms of alignment, number formatting, column width, and more.
 #'
 #' @param x A data frame or tibble to display.
-#' @param ... Additional arguments passed to specific methods.
-#'
-#' @export
-table_default <- function(x, ...) UseMethod("table_default")
-
-#' @describeIn table_default Default method for displaying tables.
 #' @param justify_cols Controls column text alignment. Can be:
 #'   - A single string ("left", "right", "center") to apply to all columns
 #'   - A vector of strings to apply to columns by position
 #'   - A named list (e.g., `list("1" = "left", "mpg" = "right")`) for specific columns
-#' @param pos Logical. If `TRUE`, positive numbers are prefixed with a plus sign. Default is `FALSE`.
 #' @param digits Number of digits to round numeric columns to. Default is `3`.
 #' @param digits_by_col Named list specifying the number of digits for specific columns. Default is `NULL`.
 #' @param scientific Logical. If `TRUE`, numeric values are displayed in scientific notation. Default is `FALSE`.
 #' @param na_print Character string to represent missing values. Default is an empty string `""`.
 #' @param min_width Minimum column width. Default is `NULL`.
-#' @param border_char Character used for borders. Default is `"─"`.
+#' @param border_char Character used for borders. Default is `"\u2500"`.
 #' @param show_row_names Logical. If `TRUE`, row names are displayed. Default is `FALSE`.
 #' @param center_table Logical. If `TRUE`, the table is centered in the terminal. Default is `FALSE`.
 #' @param n_space Number of spaces between columns. Default is `2`.
-#' @param nrow Number of rows to display. Tables with more rows will be truncated with informative messages.
-#'   Default is the value set in `options("tab_default")$nrows`, which is typically `10`.
 #' @param style_colnames Styling for column headers. Can be:
 #'   - A character vector or list specifying cli color/style functions
 #'     (e.g., `list("mpg" = "red", "cyl" = "blue_bold")`)
@@ -39,12 +30,17 @@ table_default <- function(x, ...) UseMethod("table_default")
 #'
 #'   Hidden Feature: This parameter can be used to mutate the existing column, as well.
 #'
+#' @param nrows Number of rows to display. Tables with more rows will be truncated with informative messages.
+#'   Default is the value set in `options("tab_default")$nrows`, which is typically `10`.
+#'
 #' @param vb Default is an empty list. Stands for "vertical border" to draw a vertical in a specific position.
 #'   Should be a list that contains the following:
-#'   - `char`: To provide a specific character to iteratively draw a vertical border. The `"│"` character is recommended.
+#'   - `char`: To provide a specific character to iteratively draw a vertical border. The `"\u2502"` character is recommended.
 #'   - `after`: The position of the vertical border AFTER that column. Should be a vector of integers.
 #'
 #'   This feature is recommended in presenting a statistical result like the coefficient table in Linear Regression.
+#'
+#' @param ... Additional arguments passed to specific methods.
 #'
 #' @examples
 #' # Basic usage
@@ -121,10 +117,13 @@ table_default <- function(x, ...) UseMethod("table_default")
 #'                 else cli::col_red(ctx$formatted_value)
 #'             }
 #'         ),
-#'         vb = list(char = "│", after = c(1, 10, 2))
+#'         vb = list(char = getOption("tab_default")$vb_char, after = c(1, 10, 2))
 #'     )
 #'
 #' # Displaying Linear Regression output
+#' require(broom)
+#' require(rstatix)
+#'
 #' mtcars |>
 #'     lm(formula = mpg ~ wt + disp + hp) |>
 #'     broom::tidy() |>
@@ -145,14 +144,16 @@ table_default <- function(x, ...) UseMethod("table_default")
 #'             }
 #'         ),
 #'         vb = list(
-#'             char = "│", after = 1
+#'             char = getOption("tab_default")$vb_char, after = 1
 #'         ),
 #'         n_space = 3,
 #'         center_table = TRUE
 #'     )
 #'
 #' ## Extend it with functional programming
-#' library(dplyr)
+#' require(dplyr)
+#' require(tidyr)
+#' require(glue)
 #'
 #' print_table = function(x) {
 #'     groups = unique(x[[1]])
@@ -170,7 +171,7 @@ table_default <- function(x, ...) UseMethod("table_default")
 #'         tabhelpers::table_default(
 #'             group_data,
 #'             justify_cols = list("term" = "left"),
-#'             center_table = T,
+#'             center_table = TRUE,
 #'             style_columns = list(
 #'                 p.value = function(ctx) {
 #'                     val <- as.numeric(ctx$formatted_value)
@@ -186,7 +187,7 @@ table_default <- function(x, ...) UseMethod("table_default")
 #'                 }
 #'             ),
 #'             vb = list(
-#'                 char = "│", after = 1
+#'                 char = getOption("tab_default")$vb_char, after = 1
 #'             )
 #'         )
 #'
@@ -211,23 +212,25 @@ table_default <- function(x, ...) UseMethod("table_default")
 #' @importFrom tibble as_tibble
 #' @importFrom tidyselect where
 #' @importFrom cli console_width col_red col_blue col_green cli_alert_info cli_alert_warning
+#' @importFrom utils head
 #'
 #' @export
-table_default.default <- function(x,
-                                  justify_cols = "center",
-                                  digits = 3,
-                                  digits_by_col = NULL,
-                                  scientific = FALSE,
-                                  na_print = "",
-                                  min_width = NULL,
-                                  border_char = options('tab_default')$tab_default$border_char,
-                                  show_row_names = FALSE,
-                                  center_table = FALSE,
-                                  n_space = 2,
-                                  style_colnames = NULL,
-                                  style_columns = NULL,
-                                  nrows = getOption("tab_default")$nrows,
-                                  vb = list()) {
+table_default <- function(x,
+                          justify_cols = "center",
+                          digits = 3,
+                          digits_by_col = NULL,
+                          scientific = FALSE,
+                          na_print = "",
+                          min_width = NULL,
+                          border_char = options('tab_default')$tab_default$border_char,
+                          show_row_names = FALSE,
+                          center_table = FALSE,
+                          n_space = 2,
+                          style_colnames = NULL,
+                          style_columns = NULL,
+                          nrows = getOption("tab_default")$nrows,
+                          vb = list(),
+                          ...) {
 
     if (!inherits(x, "data.frame")) {
         x <- try(as.data.frame(x), silent = TRUE)
@@ -243,28 +246,20 @@ table_default.default <- function(x,
     }
     n_space <- floor(n_space)
 
-    # Validate nrow parameter
     if (!is.numeric(nrows) || nrows < 0) {
         warning("`nrows` must be non-negative, using default 10.", call. = FALSE)
         nrows <- 10
     }
-    nrow <- floor(nrows)
-
-    # Store original row count for truncation message
+    nrows <- floor(nrows)
     original_row_count <- nrow(x)
-
-    # Check if truncation will be needed
-    truncated <- original_row_count > nrow
-
-    # Truncate if necessary
-    if (truncated) x <- head(x, nrow)
-
+    truncated <- original_row_count > nrows
+    if (truncated) x <- head(x, nrows)
     original_x <- x
     x <- tibble::as_tibble(x, rownames = if (show_row_names) "row_names" else NA)
 
     if (show_row_names && !"row_names" %in% names(x)) {
         x <- dplyr::mutate(x, row_names = as.character(seq_len(nrow(x))), .before = 1)
-        original_x <- tibble::as_tibble(original_x) # Ensure tibble
+        original_x <- tibble::as_tibble(original_x)
         original_x <- dplyr::mutate(original_x, row_names = as.character(seq_len(nrow(original_x))), .before = 1)
 
     } else if (show_row_names && "row_names" %in% names(x)) {
@@ -276,7 +271,7 @@ table_default.default <- function(x,
 
     if (nrow(x) == 0 && ncol(x) == 0) {
         cat("Empty data frame (0 rows, 0 columns)\n")
-        return(invisible(NULL))
+        invisible(NULL)
     }
 
     x <- dplyr::mutate(x, dplyr::across(tidyselect::where(is.factor), as.character))
@@ -325,7 +320,7 @@ table_default.default <- function(x,
         col_widths <- pmax(col_widths, floor(min_width[1]))
     }
 
-    border_char_v <- vb$char %||% "│"
+    border_char_v <- vb$char %||% getOption("tab_default")$vb_char
     after_cols_spec <- vb$after
     after_cols_idx <- integer(0)
 
@@ -348,10 +343,10 @@ table_default.default <- function(x,
         tryCatch({
             cli::console_width()
         }, error = function(e) {
-            as.integer(options("width")) %||% 80 # Fallback width
+            as.integer(options("width")) %||% 80
         })
     } else {
-        0 # No centering needed
+        0
     }
 
     left_padding <- if (center_table && terminal_width > total_width) {
@@ -407,7 +402,7 @@ table_default.default <- function(x,
     # --- Print Table ---
     # Display truncation message before table if needed
     if (truncated) {
-        cli::cli_alert_info("Showing {nrow} of {original_row_count} rows")
+        cli::cli_alert_info("Showing {nrows} of {original_row_count} rows")
     }
 
     cat(left_padding, top_line, "\n", sep = "")
@@ -444,7 +439,7 @@ table_default.default <- function(x,
 
     # Display truncation message after table if needed
     if (truncated) {
-        cli::cli_alert_warning("Displayed only {nrow} of {original_row_count} rows. Set 'nrow' parameter to show more rows.")
+        cli::cli_alert_warning("Displayed only {nrows} of {original_row_count} rows. Set 'nrows' parameter to show more rows.")
     }
 
     invisible(NULL)
