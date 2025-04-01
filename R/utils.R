@@ -24,12 +24,12 @@ format_row <- function(row, col_widths, justify_cols = NULL, n_space = 2, styles
                        col_data = NULL, is_header = FALSE, vb = list()) {
     original_names <- names(row)
     if (is.null(original_names) && length(row) > 0) {
-      original_names <- as.character(seq_along(row))
+        original_names <- as.character(seq_along(row))
     } else if (length(original_names) != length(row)) {
-      original_names <- as.character(seq_along(row))
+        original_names <- as.character(seq_along(row))
     }
 
-    formatted <- sapply(seq_along(row), function(i) {
+    pre_justified <- sapply(seq_along(row), function(i) {
         col_name_or_index <- original_names[i]
         value <- row[i]
         justify_value <- "center"
@@ -39,23 +39,51 @@ format_row <- function(row, col_widths, justify_cols = NULL, n_space = 2, styles
             if (is.list(justify_cols)) {
                 if (!is.null(names(justify_cols))) {
                     if (col_name_or_index %in% names(justify_cols)) {
-                         temp_justify <- justify_cols[[col_name_or_index]]
+                        temp_justify <- justify_cols[[col_name_or_index]]
                     } else if (as.character(i) %in% names(justify_cols)) {
-                         temp_justify <- justify_cols[[as.character(i)]]
+                        temp_justify <- justify_cols[[as.character(i)]]
                     }
                 }
                 if (is.null(temp_justify) && is.null(names(justify_cols)) && i <= length(justify_cols)) {
-                     temp_justify <- justify_cols[[i]]
+                    temp_justify <- justify_cols[[i]]
                 }
             } else if (is.character(justify_cols)) {
-                 temp_justify <- justify_cols[min(i, length(justify_cols))]
+                temp_justify <- justify_cols[min(i, length(justify_cols))]
             }
             if (!is.null(temp_justify) && temp_justify %in% c("left", "right", "center")) {
-                 justify_value <- temp_justify
+                justify_value <- temp_justify
             }
         }
 
-        text <- justify_text(value, col_widths[i], justify_value)
+        justify_text(value, col_widths[i], justify_value)
+    })
+
+    formatted <- sapply(seq_along(row), function(i) {
+        col_name_or_index <- original_names[i]
+        value <- row[i]
+        text <- pre_justified[i]
+        justify_value <- "center"
+
+        if (!is.null(justify_cols)) {
+            temp_justify <- NULL
+            if (is.list(justify_cols)) {
+                if (!is.null(names(justify_cols))) {
+                    if (col_name_or_index %in% names(justify_cols)) {
+                        temp_justify <- justify_cols[[col_name_or_index]]
+                    } else if (as.character(i) %in% names(justify_cols)) {
+                        temp_justify <- justify_cols[[as.character(i)]]
+                    }
+                }
+                if (is.null(temp_justify) && is.null(names(justify_cols)) && i <= length(justify_cols)) {
+                    temp_justify <- justify_cols[[i]]
+                }
+            } else if (is.character(justify_cols)) {
+                temp_justify <- justify_cols[min(i, length(justify_cols))]
+            }
+            if (!is.null(temp_justify) && temp_justify %in% c("left", "right", "center")) {
+                justify_value <- temp_justify
+            }
+        }
 
         # --- Apply Styles ---
         if (!is.null(styles)) {
@@ -67,67 +95,112 @@ format_row <- function(row, col_widths, justify_cols = NULL, n_space = 2, styles
                     if (!is.null(lookup_key) && lookup_key %in% names(styles)) {
                         style_fn_or_name <- styles[[lookup_key]]
                     } else if (as.character(i) %in% names(styles)) {
-                         style_fn_or_name <- styles[[as.character(i)]]
+                        style_fn_or_name <- styles[[as.character(i)]]
                     }
                 }
                 if (is.null(style_fn_or_name) && is.null(names(styles)) && i <= length(styles)) {
                     style_fn_or_name <- styles[[i]]
                 }
             } else if (length(styles) >= i) {
-                 style_fn_or_name <- styles[[i]]
+                style_fn_or_name <- styles[[i]]
             }
-
 
             if (!is.null(style_fn_or_name)) {
                 if (is.function(style_fn_or_name)) {
                     context <- list(
-                        value = value,                 # Original cell value
-                        formatted_value = text,        # Justified text before styling
-                        col_name = col_name_or_index,  # Original column name or index
+                        value = value,
+                        formatted_value = text,
+                        col_name = col_name_or_index,
                         col_index = i,                 # 1-based column index
-                        is_header = is_header,         # Is this the header row?
-                        data = col_data                # Original data object (passed from print_table_default)
+                        is_header = is_header,
+                        data = col_data,
+                        justify = justify_value,
+                        width = col_widths[i]
                     )
 
                     result <- tryCatch({
-                        style_fn_or_name(context)
+                        styled_result <- style_fn_or_name(context)
+
+                        if (is.character(styled_result) && length(styled_result) == 1) {
+                            stripped_text <- gsub("\033\\[[0-9;]*m", "", styled_result)
+
+                            if (nchar(stripped_text) != nchar(text)) {
+                                justification_pattern <- switch(justify_value,
+                                                                left = "^%s\\s*$",
+                                                                right = "^\\s*%s$",
+                                                                center = "^\\s*%s\\s*$")
+
+                                content_match <- regmatches(
+                                    stripped_text,
+                                    regexpr(sprintf(justification_pattern, gsub("([\\^\\$\\.\\[\\]\\(\\)\\{\\}\\|\\+\\*\\?])", "\\\\\\1", gsub("\\s+", "\\\\s+", value))),
+                                            stripped_text)
+                                )
+
+                                content <- if (length(content_match) > 0) content_match[1] else stripped_text
+
+                                ansi_parts <- strsplit(styled_result, "\033\\[[0-9;]*m")[[1]]
+                                ansi_codes <- gregexpr("\033\\[[0-9;]*m", styled_result)
+                                ansi_codes_text <- regmatches(styled_result, ansi_codes)[[1]]
+
+                                new_text <- justify_text(stripped_text, col_widths[i], justify_value)
+
+                                if (length(ansi_codes_text) > 0) {
+                                    all_parts <- character(0)
+                                    last_pos <- 1
+                                    for (code_pos in ansi_codes[[1]]) {
+                                        all_parts <- c(all_parts,
+                                                       substr(new_text, last_pos, code_pos - 1),
+                                                       ansi_codes_text[which(ansi_codes[[1]] == code_pos)])
+                                        last_pos <- code_pos
+                                    }
+                                    all_parts <- c(all_parts, substr(new_text, last_pos, nchar(new_text)))
+                                    new_text <- paste0(all_parts, collapse = "")
+                                    return(new_text)
+                                }
+
+                                return(justify_text(stripped_text, col_widths[i], justify_value))
+                            }
+
+                            return(styled_result)
+                        }
+
+                        text
                     }, error = function(e) {
                         warning("Styling function failed for column '", col_name_or_index, "': ", e$message, call. = FALSE)
                         text
                     })
 
-                    # Use result only if it's a character string
                     if (is.character(result) && length(result) == 1) {
                         text <- result
                     } else if (!is.character(result)){
-                         warning("Styling function for column '", col_name_or_index, "' did not return a character string.", call. = FALSE)
+                        warning("Styling function for column '", col_name_or_index, "' did not return a character string.", call. = FALSE)
                     }
 
                 } else if (is.character(style_fn_or_name)) {
-                  style_parts <- unlist(strsplit(style_fn_or_name, "_"))
+                    style_parts <- unlist(strsplit(style_fn_or_name, "_"))
 
-                  original_text <- text # Keep original for error case
-                  for (style_part in style_parts) {
-                    text <- tryCatch({
-                      # Try col_*, style_*, then direct name lookup in cli namespace
-                      if (exists(paste0("col_", style_part), where = asNamespace("cli"))) {
-                        style_fn <- get(paste0("col_", style_part), envir = asNamespace("cli"))
-                        style_fn(text)
-                      } else if (exists(paste0("style_", style_part), where = asNamespace("cli"))) {
-                        style_fn <- get(paste0("style_", style_part), envir = asNamespace("cli"))
-                        style_fn(text)
-                      } else if (exists(style_part, where = asNamespace("cli"))) {
-                        style_fn <- get(style_part, envir = asNamespace("cli"))
-                        style_fn(text)
-                      } else {
-                        warning("Unknown cli style '", style_part, "' in '", style_fn_or_name, "'.", call. = FALSE)
-                        text
-                      }
-                    }, error = function(e) {
-                      warning("Applying cli style '", style_part, "' failed: ", e$message, call. = FALSE)
-                      original_text
-                    })
-                  }
+                    original_text <- text
+                    for (style_part in style_parts) {
+                        text <- tryCatch({
+                            # Try col_*, style_*, then direct name lookup in cli namespace
+                            if (exists(paste0("col_", style_part), where = asNamespace("cli"))) {
+                                style_fn <- get(paste0("col_", style_part), envir = asNamespace("cli"))
+                                style_fn(text)
+                            } else if (exists(paste0("style_", style_part), where = asNamespace("cli"))) {
+                                style_fn <- get(paste0("style_", style_part), envir = asNamespace("cli"))
+                                style_fn(text)
+                            } else if (exists(style_part, where = asNamespace("cli"))) {
+                                style_fn <- get(style_part, envir = asNamespace("cli"))
+                                style_fn(text)
+                            } else {
+                                warning("Unknown cli style '", style_part, "' in '", style_fn_or_name, "'.", call. = FALSE)
+                                text
+                            }
+                        }, error = function(e) {
+                            warning("Applying cli style '", style_part, "' failed: ", e$message, call. = FALSE)
+                            original_text
+                        })
+                    }
                 }
             }
         }
@@ -137,23 +210,18 @@ format_row <- function(row, col_widths, justify_cols = NULL, n_space = 2, styles
 
     # --- Add Vertical Borders ---
     border_char <- vb$char %||% getOption("tab_default")$vb_char
-    after_cols_spec <- vb$after # Indices or names
+    after_cols_spec <- vb$after
 
     if (length(after_cols_spec) > 0) {
         after_cols_idx <- integer(0)
         if (is.numeric(after_cols_spec)) {
             after_cols_idx <- after_cols_spec
         } else if (is.character(after_cols_spec)) {
-            # Match provided names against the original names used in this row
             after_cols_idx <- match(after_cols_spec, original_names)
         }
 
-        # Filter valid, non-NA indices within the bounds (not after the last column)
         valid_indices <- !is.na(after_cols_idx) & after_cols_idx > 0 & after_cols_idx < length(formatted)
         after_cols_idx <- sort(unique(after_cols_idx[valid_indices]))
-
-        # Insert borders by modifying the formatted cells
-        # We iterate downwards to avoid index shifting issues if inserting directly
         if (length(after_cols_idx) > 0) {
             processed_formatted <- character(length(formatted) + length(after_cols_idx))
             current_pos <- 1
@@ -162,8 +230,8 @@ format_row <- function(row, col_widths, justify_cols = NULL, n_space = 2, styles
                 processed_formatted[current_pos] <- formatted[i]
                 current_pos <- current_pos + 1
                 if (i %in% after_cols_idx) {
-                     formatted[i] <- paste0(formatted[i], " ", border_char)
-                     border_count <- border_count + 1
+                    formatted[i] <- paste0(formatted[i], " ", border_char)
+                    border_count <- border_count + 1
                 }
             }
         }

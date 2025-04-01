@@ -208,9 +208,6 @@
 #'     tidyr::unnest(lm_model) |>
 #'     print_table()
 #'
-#' @importFrom dplyr mutate across everything
-#' @importFrom tibble as_tibble
-#' @importFrom tidyselect where
 #' @importFrom cli console_width col_red col_blue col_green cli_alert_info cli_alert_warning
 #' @importFrom utils head
 #'
@@ -378,13 +375,13 @@ table_default <- function(x,
         line
     }
 
-    # Define the specific lines using appropriate connectors
+    # --- Define the specific lines using appropriate connectors
     connectors <- getOption("tab_default")
     top_line <- create_horizontal_line(connectors$vb_top)
     middle_line <- create_horizontal_line(connectors$vb_mid)
     bottom_line <- create_horizontal_line(connectors$vb_bottom)
 
-    # If no vertical borders, use simple lines
+    # --- If no vertical borders, use simple lines
     if (n_borders == 0) {
         simple_line <- paste0(rep(border_char, total_width), collapse = "")
         simple_width <- sum(col_widths) + max(0, length(col_widths) - 1) * n_space + 4
@@ -400,14 +397,14 @@ table_default <- function(x,
 
 
     # --- Print Table ---
-    # Display truncation message before table if needed
+    # --- Display truncation message before table if needed
     if (truncated) {
         cli::cli_alert_info("Showing {nrows} of {original_row_count} rows")
     }
 
     cat(left_padding, top_line, "\n", sep = "")
 
-    # Use stats::setNames to ensure names are present for format_row lookup
+    # --- Use stats::setNames to ensure names are present for format_row lookup
     header_values <- stats::setNames(col_names, col_names)
     header_row <- format_row(header_values, col_widths,
                              justify_cols = justify_cols,
@@ -437,11 +434,11 @@ table_default <- function(x,
 
     cat(left_padding, bottom_line, "\n", sep = "")
 
-    # Display truncation message after table if needed
+    # -- Display truncation message after table if needed --
     if (truncated) {
         cli::cli_alert_warning("Displayed only {nrows} of {original_row_count} rows. Set 'nrows' parameter to show more rows.")
     }
 
-    invisible(NULL)
+    invisible(x)
 }
 

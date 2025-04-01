@@ -44,7 +44,7 @@ The context object contains:
 }
 }}
 
-\item{...}{}
+\item{...}{Additional arguments (not currently used).}
 }
 \value{
 Invisibly returns the formatted matrix, while the table is

@@ -21,7 +21,7 @@
 #'      - `type`: The component type (e.g., "observed", "expected")
 #'      - `is_total`: Logical indicating if the cell is a total
 #'      - `raw`: Logical indicating if the value is raw (TRUE) or formatted (FALSE)
-#' @param ...
+#' @param ... Additional arguments (not currently used).
 #'
 #' @return Invisibly returns the formatted matrix, while the table is
 #'   printed to the console/command line.

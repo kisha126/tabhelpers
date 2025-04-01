@@ -171,6 +171,8 @@ align_center <- function(text, width, pos = FALSE) {
 #'         layout_view = TRUE
 #'     )
 #'
+#' @importFrom rlang ensym
+#'
 #' @export
 corr_matrix <- function(data,
                         method = NULL,
