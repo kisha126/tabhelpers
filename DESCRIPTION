@@ -15,7 +15,6 @@ RoxygenNote: 7.3.2
 Imports:
     rlang,
     dplyr,
-    tidyr,
     cli,
     tibble,
     tidyselect,
@@ -24,4 +23,5 @@ Imports:
 Suggests:
     broom,
     rstatix,
-    glue
+    glue,
+    tidyr

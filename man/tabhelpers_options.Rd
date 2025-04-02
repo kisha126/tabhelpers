@@ -2,26 +2,56 @@
 % Please edit documentation in R/options.R
 \name{tabhelpers_options}
 \alias{tabhelpers_options}
-\title{Manage "tab_default" options}
+\title{Manage package options}
 \usage{
-tabhelpers_options(o = NULL, value = NULL)
+tabhelpers_options(category = NULL, option = NULL, value = NULL)
 }
 \arguments{
-\item{o}{A character string specifying the option to retrieve or modify.}
+\item{category}{A character string specifying the option category (e.g., "tab_default", "tab_digits").
+If omitted, returns all option categories.}
+
+\item{option}{A character string specifying the option to retrieve or modify within the category.
+For backward compatibility, you can also use a specific option name directly as the \code{category} parameter.}
 
 \item{value}{The new value to assign to the specified option. If NULL, the function returns the current value.}
 }
 \value{
-If no arguments are provided, it returns the entire "tab_default" list. If \code{o} is provided without \code{value}, it returns the current value of that option. If both \code{o} and \code{value} are provided, it updates the option.
+If no arguments are provided, returns all option categories and their values.
+If only \code{category} is provided, returns all options in that category.
+If \code{category} and \code{option} are provided without \code{value}, returns the current value of that option.
+If all parameters are provided, updates the option and returns the updated option category list invisibly.
 }
 \description{
-This function allows retrieving or modifying the "tab_default" options.
-If called without arguments, it returns the current list of options.
-If \code{o} and \code{value} are provided, it updates the specified option.
+This function allows retrieving or modifying the package options across different categories.
+If called without arguments, it returns all option categories and their values.
+If \code{category} is provided alone, it returns all options in that category.
+If \code{category} and \code{option} are provided, it returns the specific option value.
+If all three parameters are provided, it updates the specified option.
 }
 \examples{
-tabhelpers_options()  # Get all options
-tabhelpers_options("vb_top")  # Get specific option
-tabhelpers_options("border_char", "+")  # Modify an option
+# Get all options across all categories
+tabhelpers_options()
+
+# Get all options in the "tab_default" category
+tabhelpers_options("tab_default")
+
+# Get all options in the "tab_digits" category
+tabhelpers_options("tab_digits")
+
+# Get a specific option
+tabhelpers_options("tab_default", "vb_top")
+tabhelpers_options("tab_digits", "ex")
+
+# Using backward compatibility (system will find the right category)
+tabhelpers_options("vb_top")
+tabhelpers_options("ex")
+
+# Modify an option
+tabhelpers_options("tab_default", "border_char", "+")
+tabhelpers_options("tab_digits", "ex", 2)
+
+# Using backward compatibility for modification
+tabhelpers_options("border_char", "+")
+tabhelpers_options("ex", 2)
 
 }

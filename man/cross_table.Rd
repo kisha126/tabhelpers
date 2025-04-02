@@ -10,8 +10,9 @@ cross_table(
   layout = TRUE,
   expected = TRUE,
   layout_center = FALSE,
-  center_table = FALSE,
   header_underline = FALSE,
+  digits = NULL,
+  center_table = FALSE,
   style = NULL,
   ...
 )
@@ -35,9 +36,19 @@ Options include:
 
 \item{layout_center}{Logical. If \code{TRUE}, the layout box is centered in the terminal.}
 
-\item{center_table}{Logical. If \code{TRUE}, the entire table is centered in the terminal.}
-
 \item{header_underline}{If \code{TRUE}, the width of the line that indicates the "response" is shorten.}
+
+\item{digits}{If NULL, it is set up by default. The default contains the options you get
+from \code{getOption("ct_digits")}. Else, you can provide it from a list or tweak it
+from the \code{options} list or use \code{tabhelpers_option}. It has following components:
+\itemize{
+\item \code{ex}: to adjust the digits by expected values.
+\item \code{row_pct}: to adjust the digits by row percentages.
+\item \code{col_pct}: to adjust the digits by column percentages.
+\item \code{total_pct}: to adjust the digits by total percentages.
+}}
+
+\item{center_table}{Logical. If \code{TRUE}, the entire table is centered in the terminal.}
 
 \item{style}{Default to \code{NULL}. If provided, the components in the displayed table can be styled.
 It has 9 components that can be styled:
