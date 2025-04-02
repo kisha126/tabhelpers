@@ -29,6 +29,67 @@ format_row <- function(row, col_widths, justify_cols = NULL, n_space = 2, styles
         original_names <- as.character(seq_along(row))
     }
 
+    # First pass: Apply styles to get final text content including any additions...
+    styled_content <- character(length(row))
+    for (i in seq_along(row)) {
+        col_name_or_index <- original_names[i]
+        value <- row[i]
+
+        styled_text <- value
+
+        if (!is.null(styles)) {
+            style_fn_or_name <- NULL
+            lookup_key <- if (is_header) value else col_name_or_index
+
+            if (is.list(styles)) {
+                if (!is.null(names(styles))) {
+                    if (!is.null(lookup_key) && lookup_key %in% names(styles)) {
+                        style_fn_or_name <- styles[[lookup_key]]
+                    } else if (as.character(i) %in% names(styles)) {
+                        style_fn_or_name <- styles[[as.character(i)]]
+                    }
+                }
+                if (is.null(style_fn_or_name) && is.null(names(styles)) && i <= length(styles)) {
+                    style_fn_or_name <- styles[[i]]
+                }
+            } else if (length(styles) >= i) {
+                style_fn_or_name <- styles[[i]]
+            }
+
+            if (!is.null(style_fn_or_name) && is.function(style_fn_or_name)) {
+                context <- list(
+                    value = value,
+                    formatted_value = value,  # Not justified yet
+                    col_name = col_name_or_index,
+                    col_index = i,
+                    is_header = is_header,
+                    data = col_data,
+                    justify = "center",  # Default, will be adjusted later
+                    width = col_widths[i]
+                )
+
+                result <- tryCatch({
+                    style_result <- style_fn_or_name(context)
+                    if (is.character(style_result) && length(style_result) == 1) {
+                        # Strip ANSI codes to get the plain content
+                        stripped_text <- gsub("\033\\[[0-9;]*m", "", style_result)
+                        styled_text <- stripped_text
+                    }
+                    styled_text
+                }, error = function(e) {
+                    warning("Styling function failed for column '", col_name_or_index, "': ", e$message, call. = FALSE)
+                    value
+                })
+            }
+        }
+
+        styled_content[i] <- styled_text
+    }
+
+    # Calculate actual width needed for each column based on styled content
+    actual_widths <- pmax(col_widths, nchar(styled_content))
+
+    # Second pass: Apply justification and styling with appropriate width
     pre_justified <- sapply(seq_along(row), function(i) {
         col_name_or_index <- original_names[i]
         value <- row[i]
@@ -55,7 +116,8 @@ format_row <- function(row, col_widths, justify_cols = NULL, n_space = 2, styles
             }
         }
 
-        justify_text(value, col_widths[i], justify_value)
+        # Use actual_widths here instead of col_widths
+        justify_text(value, actual_widths[i], justify_value)
     })
 
     formatted <- sapply(seq_along(row), function(i) {
@@ -109,13 +171,13 @@ format_row <- function(row, col_widths, justify_cols = NULL, n_space = 2, styles
                 if (is.function(style_fn_or_name)) {
                     context <- list(
                         value = value,
-                        formatted_value = text,
+                        formatted_value = value,  # Use original value, not justified text
                         col_name = col_name_or_index,
-                        col_index = i,                 # 1-based column index
+                        col_index = i,
                         is_header = is_header,
                         data = col_data,
                         justify = justify_value,
-                        width = col_widths[i]
+                        width = actual_widths[i]  # Use actual width
                     )
 
                     result <- tryCatch({
@@ -124,56 +186,66 @@ format_row <- function(row, col_widths, justify_cols = NULL, n_space = 2, styles
                         if (is.character(styled_result) && length(styled_result) == 1) {
                             stripped_text <- gsub("\033\\[[0-9;]*m", "", styled_result)
 
-                            if (nchar(stripped_text) != nchar(text)) {
-                                justification_pattern <- switch(justify_value,
-                                                                left = "^%s\\s*$",
-                                                                right = "^\\s*%s$",
-                                                                center = "^\\s*%s\\s*$")
+                            # Use actual_widths for justification
+                            new_text <- justify_text(stripped_text, actual_widths[i], justify_value)
 
-                                content_match <- regmatches(
-                                    stripped_text,
-                                    regexpr(sprintf(justification_pattern, gsub("([\\^\\$\\.\\[\\]\\(\\)\\{\\}\\|\\+\\*\\?])", "\\\\\\1", gsub("\\s+", "\\\\s+", value))),
-                                            stripped_text)
-                                )
-
-                                content <- if (length(content_match) > 0) content_match[1] else stripped_text
-
+                            # Transfer ANSI codes to the justified text
+                            if (grepl("\033\\[", styled_result)) {
                                 ansi_parts <- strsplit(styled_result, "\033\\[[0-9;]*m")[[1]]
                                 ansi_codes <- gregexpr("\033\\[[0-9;]*m", styled_result)
                                 ansi_codes_text <- regmatches(styled_result, ansi_codes)[[1]]
 
-                                new_text <- justify_text(stripped_text, col_widths[i], justify_value)
-
                                 if (length(ansi_codes_text) > 0) {
-                                    all_parts <- character(0)
+                                    # Start with the first part of the text
+                                    result_parts <- list()
                                     last_pos <- 1
-                                    for (code_pos in ansi_codes[[1]]) {
-                                        all_parts <- c(all_parts,
-                                                       substr(new_text, last_pos, code_pos - 1),
-                                                       ansi_codes_text[which(ansi_codes[[1]] == code_pos)])
-                                        last_pos <- code_pos
-                                    }
-                                    all_parts <- c(all_parts, substr(new_text, last_pos, nchar(new_text)))
-                                    new_text <- paste0(all_parts, collapse = "")
-                                    return(new_text)
-                                }
 
-                                return(justify_text(stripped_text, col_widths[i], justify_value))
+                                    # Extract positions of ANSI codes
+                                    code_positions <- ansi_codes[[1]]
+
+                                    # Process each ANSI code
+                                    for (j in seq_along(code_positions)) {
+                                        # Add text before this code
+                                        if (code_positions[j] > last_pos) {
+                                            result_parts <- c(result_parts,
+                                                              list(substr(new_text, last_pos,
+                                                                          code_positions[j] - 1)))
+                                        }
+
+                                        # Add the ANSI code
+                                        result_parts <- c(result_parts, list(ansi_codes_text[j]))
+
+                                        # Update position
+                                        last_pos <- code_positions[j]
+                                    }
+
+                                    # Add remaining text
+                                    if (last_pos <= nchar(new_text)) {
+                                        result_parts <- c(result_parts,
+                                                          list(substr(new_text, last_pos,
+                                                                      nchar(new_text))))
+                                    }
+
+                                    return(paste0(unlist(result_parts), collapse = ""))
+                                }
                             }
 
-                            return(styled_result)
+                            # If we couldn't properly transfer ANSI codes, just return the styled result
+                            return(justify_text(stripped_text, actual_widths[i], justify_value))
                         }
 
-                        text
+                        return(text)
                     }, error = function(e) {
-                        warning("Styling function failed for column '", col_name_or_index, "': ", e$message, call. = FALSE)
-                        text
+                        warning("Styling function failed for column '", col_name_or_index, "': ",
+                                e$message, call. = FALSE)
+                        return(text)
                     })
 
                     if (is.character(result) && length(result) == 1) {
                         text <- result
                     } else if (!is.character(result)){
-                        warning("Styling function for column '", col_name_or_index, "' did not return a character string.", call. = FALSE)
+                        warning("Styling function for column '", col_name_or_index,
+                                "' did not return a character string.", call. = FALSE)
                     }
 
                 } else if (is.character(style_fn_or_name)) {
@@ -193,11 +265,13 @@ format_row <- function(row, col_widths, justify_cols = NULL, n_space = 2, styles
                                 style_fn <- get(style_part, envir = asNamespace("cli"))
                                 style_fn(text)
                             } else {
-                                warning("Unknown cli style '", style_part, "' in '", style_fn_or_name, "'.", call. = FALSE)
+                                warning("Unknown cli style '", style_part, "' in '", style_fn_or_name,
+                                        "'.", call. = FALSE)
                                 text
                             }
                         }, error = function(e) {
-                            warning("Applying cli style '", style_part, "' failed: ", e$message, call. = FALSE)
+                            warning("Applying cli style '", style_part, "' failed: ", e$message,
+                                    call. = FALSE)
                             original_text
                         })
                     }

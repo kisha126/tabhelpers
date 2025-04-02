@@ -17,6 +17,7 @@
 #' @param show_row_names Logical. If `TRUE`, row names are displayed. Default is `FALSE`.
 #' @param center_table Logical. If `TRUE`, the table is centered in the terminal. Default is `FALSE`.
 #' @param n_space Number of spaces between columns. Default is `2`.
+#' @param title The default is `NULL`. If provided, the header is extended and filled up with title you want.
 #' @param style_colnames Styling for column headers. Can be:
 #'   - A character vector or list specifying cli color/style functions
 #'     (e.g., `list("mpg" = "red", "cyl" = "blue_bold")`)
@@ -223,6 +224,7 @@ table_default <- function(x,
                           show_row_names = FALSE,
                           center_table = FALSE,
                           n_space = 2,
+                          title = NULL,
                           style_colnames = NULL,
                           style_columns = NULL,
                           nrows = getOption("tab_default")$nrows,
@@ -311,7 +313,67 @@ table_default <- function(x,
     }
 
     x_chars <- as.matrix(x)
+
+    # --- Pre-process to find potential styled content widths ---
+    actual_widths <- rep(0, ncol(x))
+    names(actual_widths) <- col_names
+
+    # First, check the base widths
     col_widths <- apply(rbind(nchar(col_names), nchar(x_chars)), 2, max, na.rm = TRUE)
+
+    # Then, simulate style functions to find potential expanded content
+    if (!is.null(style_columns) && is.list(style_columns)) {
+        for (col_idx in seq_along(col_names)) {
+            col_name <- col_names[col_idx]
+            style_fn <- NULL
+
+            # Find the style function for this column
+            if (!is.null(names(style_columns))) {
+                if (col_name %in% names(style_columns)) {
+                    style_fn <- style_columns[[col_name]]
+                } else if (as.character(col_idx) %in% names(style_columns)) {
+                    style_fn <- style_columns[[as.character(col_idx)]]
+                }
+            } else if (col_idx <= length(style_columns)) {
+                style_fn <- style_columns[[col_idx]]
+            }
+
+            # Apply the style function to each value to find max width
+            if (!is.null(style_fn) && is.function(style_fn)) {
+                styled_values <- character(nrow(x))
+                for (row_idx in seq_len(nrow(x))) {
+                    value <- x_chars[row_idx, col_idx]
+                    context <- list(
+                        value = value,
+                        formatted_value = value,
+                        col_name = col_name,
+                        col_index = col_idx,
+                        is_header = FALSE,
+                        data = original_x,
+                        justify = "center",
+                        width = col_widths[col_idx]
+                    )
+
+                    result <- tryCatch({
+                        styled_result <- style_fn(context)
+                        if (is.character(styled_result) && length(styled_result) == 1) {
+                            # Strip ANSI escape codes to get true content length
+                            gsub("\033\\[[0-9;]*m", "", styled_result)
+                        } else {
+                            value
+                        }
+                    }, error = function(e) {
+                        value
+                    })
+
+                    styled_values[row_idx] <- result
+                }
+
+                max_width <- max(nchar(styled_values), na.rm = TRUE)
+                col_widths[col_idx] <- max(col_widths[col_idx], max_width)
+            }
+        }
+    }
 
     if (!is.null(min_width) && is.numeric(min_width)) {
         col_widths <- pmax(col_widths, floor(min_width[1]))
@@ -395,6 +457,24 @@ table_default <- function(x,
         }
     }
 
+    # --- Create a simpler horizontal line for title (no connectors) ---
+    create_simple_horizontal_line <- function() {
+        # Calculate the total width without considering vertical borders for title line
+        width <- sum(col_widths) + (length(col_widths) - 1) * n_space + n_borders * (1 + nchar(border_char_v)) + 4
+        paste0(rep(border_char, width), collapse = "")
+    }
+
+    # --- NEW CODE: Create a title line with no connectors, regardless of vertical borders ---
+    create_title_line <- function() {
+        # Calculate the total width
+        width <- sum(col_widths) + (length(col_widths) - 1) * n_space + n_borders * (1 + nchar(border_char_v)) + 4
+
+        # Create a continuous horizontal line with no vertical borders
+        paste0(rep(border_char, width), collapse = "")
+    }
+
+    # Use the new function for title_line
+    title_line <- create_title_line()
 
     # --- Print Table ---
     # --- Display truncation message before table if needed
@@ -402,7 +482,77 @@ table_default <- function(x,
         cli::cli_alert_info("Showing {nrows} of {original_row_count} rows")
     }
 
-    cat(left_padding, top_line, "\n", sep = "")
+    # For the title, use the title_line (no connectors)
+    if (!is.null(title)) {
+        cat(left_padding, title_line, "\n", sep = "")
+
+        # Get title justification from justify_cols
+        title_justify <- "center"  # Default justification for title
+
+        if (!is.null(justify_cols)) {
+            if (is.list(justify_cols)) {
+                if ("title" %in% names(justify_cols)) {
+                    title_justify <- justify_cols[["title"]]
+                }
+            }
+        }
+
+        # Calculate line width without the border chars on the sides
+        inner_width <- nchar(title_line) - 2
+
+        # Justify the title
+        formatted_title <- justify_text(title, inner_width, title_justify)
+
+        # Apply style to title if specified in style_colnames
+        if (!is.null(style_colnames) && is.list(style_colnames) && "title" %in% names(style_colnames)) {
+            style_fn <- style_colnames[["title"]]
+            if (is.function(style_fn)) {
+                context <- list(
+                    value = title,
+                    formatted_value = formatted_title,
+                    col_name = "title",
+                    col_index = 0,
+                    is_header = TRUE,
+                    data = original_x,
+                    justify = title_justify,
+                    width = inner_width
+                )
+
+                styled_title <- tryCatch({
+                    style_fn(context)
+                }, error = function(e) {
+                    formatted_title
+                })
+
+                if (is.character(styled_title) && length(styled_title) == 1) {
+                    formatted_title <- styled_title
+                }
+            } else if (is.character(style_fn)) {
+                style_parts <- unlist(strsplit(style_fn, "_"))
+                for (style_part in style_parts) {
+                    if (exists(paste0("col_", style_part), where = asNamespace("cli"))) {
+                        style_fn <- get(paste0("col_", style_part), envir = asNamespace("cli"))
+                        formatted_title <- style_fn(formatted_title)
+                    } else if (exists(paste0("style_", style_part), where = asNamespace("cli"))) {
+                        style_fn <- get(paste0("style_", style_part), envir = asNamespace("cli"))
+                        formatted_title <- style_fn(formatted_title)
+                    } else if (exists(style_part, where = asNamespace("cli"))) {
+                        style_fn <- get(style_part, envir = asNamespace("cli"))
+                        formatted_title <- style_fn(formatted_title)
+                    }
+                }
+            }
+        }
+
+        # Print the title row
+        cat(left_padding, " ", formatted_title, " ", "\n", sep = "")
+
+        # For top line after title, use top_line
+        cat(left_padding, top_line, "\n", sep = "")
+    } else {
+        # If no title, just use top_line
+        cat(left_padding, top_line, "\n", sep = "")
+    }
 
     # --- Use stats::setNames to ensure names are present for format_row lookup
     header_values <- stats::setNames(col_names, col_names)

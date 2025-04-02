@@ -16,6 +16,7 @@ table_default(
   show_row_names = FALSE,
   center_table = FALSE,
   n_space = 2,
+  title = NULL,
   style_colnames = NULL,
   style_columns = NULL,
   nrows = getOption("tab_default")$nrows,
@@ -50,6 +51,8 @@ table_default(
 \item{center_table}{Logical. If \code{TRUE}, the table is centered in the terminal. Default is \code{FALSE}.}
 
 \item{n_space}{Number of spaces between columns. Default is \code{2}.}
+
+\item{title}{The default is \code{NULL}. If provided, the header is extended and filled up with title you want.}
 
 \item{style_colnames}{Styling for column headers. Can be:
 \itemize{
