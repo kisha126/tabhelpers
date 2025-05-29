@@ -21,6 +21,8 @@ table_default(
   style_columns = NULL,
   nrows = getOption("tab_default")$nrows,
   vb = list(),
+  auto_wrap = TRUE,
+  wrap_threshold = 0.9,
   ...
 )
 }
@@ -83,6 +85,10 @@ Should be a list that contains the following:
 }
 
 This feature is recommended in presenting a statistical result like the coefficient table in Linear Regression.}
+
+\item{auto_wrap}{Controls whether automatic wrapping is enabled. Default is TRUE.}
+
+\item{wrap_threshold}{Sets the threshold (as a fraction of console width) at which wrapping occurs. The default is 0.9.}
 
 \item{...}{Additional arguments passed to specific methods.}
 }
